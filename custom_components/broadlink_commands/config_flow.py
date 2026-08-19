@@ -7,15 +7,17 @@ import logging
 from typing import Any
 
 import voluptuous as vol
+from homeassistant.components.button import DOMAIN as BUTTON_DOMAIN
 from homeassistant.config_entries import (
     ConfigEntry,
     ConfigFlow,
     ConfigFlowResult,
+    ConfigSubentry,
     ConfigSubentryFlow,
     SubentryFlowResult,
 )
 from homeassistant.core import callback
-from homeassistant.helpers import selector
+from homeassistant.helpers import entity_registry as er, selector
 
 from . import device as bl
 from .const import (
@@ -29,6 +31,7 @@ from .const import (
     CONF_HOST,
     CONF_MAC,
     CONF_MODEL,
+    CONF_RELEARN,
     CONF_TEST,
     DOMAIN,
     SUBENTRY_TYPE_COMMAND,
@@ -145,6 +148,8 @@ class CommandSubentryFlowHandler(ConfigSubentryFlow):
         self._device_handle: Any = None
         self._frequency: float | None = None
         self._swept: bool = False
+        self._reconfiguring: bool = False
+        self._pending: dict[str, Any] | None = None
 
     @property
     def _entry(self) -> ConfigEntry:
@@ -174,6 +179,68 @@ class CommandSubentryFlowHandler(ConfigSubentryFlow):
         return self.async_show_menu(
             step_id="user", menu_options=["learn_ir", "learn_rf"]
         )
+
+    # --- Editing an existing command ---------------------------------------------
+
+    async def async_step_reconfigure(
+        self, user_input: dict[str, Any] | None = None
+    ) -> SubentryFlowResult:
+        """Rename, move, or recapture a command without replacing its entity."""
+        subentry = self._get_reconfigure_subentry()
+        self._reconfiguring = True
+
+        if user_input is not None:
+            if user_input.get(CONF_RELEARN):
+                # Keep the name and area; only the code is being replaced.
+                self._pending = user_input
+                return await self.async_step_user()
+            return self._save(user_input, subentry)
+
+        # Carried over so a rename does not discard the code already captured.
+        self._code = subentry.data[CONF_CODE]
+        self._code_type = subentry.data.get(CONF_CODE_TYPE)
+        self._frequency = subentry.data.get(CONF_FREQUENCY)
+
+        area_id = subentry.data.get(CONF_AREA_ID)
+        area_field = (
+            vol.Optional(CONF_AREA_ID, default=area_id)
+            if area_id
+            else vol.Optional(CONF_AREA_ID)
+        )
+        return self.async_show_form(
+            step_id="reconfigure",
+            data_schema=vol.Schema(
+                {
+                    vol.Required("name", default=subentry.title): str,
+                    area_field: selector.AreaSelector(),
+                    vol.Optional(CONF_RELEARN, default=False): bool,
+                }
+            ),
+        )
+
+    def _save(
+        self, user_input: dict[str, Any], subentry: ConfigSubentry
+    ) -> SubentryFlowResult:
+        area_id = user_input.get(CONF_AREA_ID)
+        self._apply_area(subentry.subentry_id, area_id)
+        return self.async_update_and_abort(
+            self._entry,
+            subentry,
+            title=user_input["name"],
+            data={
+                CONF_CODE: self._code,
+                CONF_CODE_TYPE: self._code_type,
+                CONF_AREA_ID: area_id,
+                CONF_FREQUENCY: self._frequency,
+            },
+        )
+
+    def _apply_area(self, subentry_id: str, area_id: str | None) -> None:
+        """The entity keeps its own area, so changing it here has to be explicit."""
+        registry = er.async_get(self.hass)
+        entity_id = registry.async_get_entity_id(BUTTON_DOMAIN, DOMAIN, subentry_id)
+        if entity_id:
+            registry.async_update_entity(entity_id, area_id=area_id)
 
     # --- IR: one press is enough -------------------------------------------------
 
@@ -296,7 +363,8 @@ class CommandSubentryFlowHandler(ConfigSubentryFlow):
         """Let the code be tested as often as needed before it is saved."""
         errors: dict[str, str] = {}
         placeholders = {"result": ""}
-        previous = user_input or {}
+        # After a relearn the name and area were already chosen; carry them over.
+        previous = user_input or self._pending or {}
 
         if user_input is not None:
             if user_input.get(CONF_TEST):
@@ -307,6 +375,8 @@ class CommandSubentryFlowHandler(ConfigSubentryFlow):
                     errors["base"] = "cannot_connect"
                 else:
                     placeholders["result"] = "Sent. If nothing happened, learn it again."
+            elif self._reconfiguring:
+                return self._save(user_input, self._get_reconfigure_subentry())
             else:
                 return self.async_create_entry(
                     title=user_input["name"],

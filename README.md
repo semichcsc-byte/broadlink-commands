@@ -51,6 +51,15 @@ does not save anything, so you can try as many times as you need.
 
 Each saved command becomes a button entity under the device.
 
+## Editing a command
+
+Use the command's overflow menu on the integration page.
+
+Renaming or moving a command to another area keeps the same entity, so anything
+already pointing at it — dashboards, automations, scripts — keeps working. Tick
+**Learn the code again** to recapture the code while keeping the name, the area
+and the entity.
+
 ## Notes
 
 - Codes are stored in the config entry, so they survive restarts and are included

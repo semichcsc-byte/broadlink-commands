@@ -32,6 +32,15 @@
       },
       "entry_type": "Comando",
       "step": {
+        "reconfigure": {
+          "title": "Editar comando",
+          "description": "Mudar o nome ou a divis\u00e3o mant\u00e9m a mesma entidade, portanto dashboards e automa\u00e7\u00f5es n\u00e3o s\u00e3o afectados. Marca Aprender de novo para substituir o c\u00f3digo mantendo o resto.",
+          "data": {
+            "name": "Nome",
+            "area_id": "Divis\u00e3o",
+            "relearn": "Aprender o c\u00f3digo de novo"
+          }
+        },
         "user": {
           "title": "Que tipo de comando?",
           "description": "Infravermelhos é o que usam televisões, ar condicionado e a maioria dos electrodomésticos. Radiofrequência é o que usam estores, toldos, portões e campainhas.",

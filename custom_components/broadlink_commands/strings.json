@@ -32,6 +32,15 @@
       },
       "entry_type": "Command",
       "step": {
+        "reconfigure": {
+          "title": "Edit command",
+          "description": "Renaming or moving keeps the same entity, so dashboards and automations are unaffected. Tick Learn again to replace the code while keeping everything else.",
+          "data": {
+            "name": "Name",
+            "area_id": "Area",
+            "relearn": "Learn the code again"
+          }
+        },
         "user": {
           "title": "What kind of remote?",
           "description": "Infrared is used by TVs, air conditioners and most home electronics. Radio frequency is used by blinds, awnings, gates and doorbells.",

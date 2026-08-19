@@ -11,6 +11,7 @@ CONF_CODE = "code"
 CONF_CODE_TYPE = "code_type"
 CONF_AREA_ID = "area_id"
 CONF_TEST = "test"
+CONF_RELEARN = "relearn"
 CONF_FREQUENCY = "frequency"
 
 SUBENTRY_TYPE_COMMAND = "command"
