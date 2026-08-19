@@ -216,9 +216,7 @@ class CommandSubentryFlowHandler(ConfigSubentryFlow):
         self, user_input: dict[str, Any] | None = None
     ) -> SubentryFlowResult:
         if self._task is None:
-            self._task = self.hass.async_create_task(
-                self.hass.async_add_executor_job(bl.learn_rf, self._device_handle)
-            )
+            self._task = self.hass.async_create_task(self._learn_rf())
 
         if not self._task.done():
             return self.async_show_progress(
@@ -228,6 +226,10 @@ class CommandSubentryFlowHandler(ConfigSubentryFlow):
             )
 
         return self._finish_task()
+
+    async def _learn_rf(self) -> str:
+        # Reuses the handle from the sweep: the frequency is bound to that session.
+        return await self.hass.async_add_executor_job(bl.learn_rf, self._device_handle)
 
     def _finish_task(self) -> SubentryFlowResult:
         try:
@@ -254,6 +256,7 @@ class CommandSubentryFlowHandler(ConfigSubentryFlow):
         """Let the code be tested as often as needed before it is saved."""
         errors: dict[str, str] = {}
         placeholders = {"result": ""}
+        previous = user_input or {}
 
         if user_input is not None:
             if user_input.get(CONF_TEST):
@@ -274,12 +277,23 @@ class CommandSubentryFlowHandler(ConfigSubentryFlow):
                     },
                 )
 
+        name_field = (
+            vol.Required("name", default=previous["name"])
+            if "name" in previous
+            else vol.Required("name")
+        )
+        area_field = (
+            vol.Optional(CONF_AREA_ID, default=previous[CONF_AREA_ID])
+            if previous.get(CONF_AREA_ID)
+            else vol.Optional(CONF_AREA_ID)
+        )
+
         return self.async_show_form(
             step_id="name",
             data_schema=vol.Schema(
                 {
-                    vol.Required("name", default=user_input.get("name") if user_input else vol.UNDEFINED): str,
-                    vol.Optional(CONF_AREA_ID): selector.AreaSelector(),
+                    name_field: str,
+                    area_field: selector.AreaSelector(),
                     vol.Optional(CONF_TEST, default=False): bool,
                 }
             ),

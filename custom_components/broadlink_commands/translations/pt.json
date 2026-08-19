@@ -56,7 +56,7 @@
       },
       "progress": {
         "learn_ir": "Aponta o comando ao aparelho e prime o botão uma vez.",
-        "hold_rf": "Mantém o botão premido até este passo terminar. Está à procura da frequência certa.",
+        "hold_rf": "Mantém o botão premido até este passo terminar, para o aparelho encontrar a frequência certa. Se o teu comando deixar de transmitir enquanto o seguras, carrega repetidamente.",
         "press_rf": "Frequência encontrada. Larga o botão e prime-o uma vez."
       },
       "error": {

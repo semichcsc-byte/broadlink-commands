@@ -56,7 +56,7 @@
       },
       "progress": {
         "learn_ir": "Point the remote at the device and press the button once.",
-        "hold_rf": "Press and hold the button until this step finishes. It is searching for the right frequency.",
+        "hold_rf": "Press and hold the button until this step finishes, so the device can find the right frequency. If your remote stops transmitting while held, tap it repeatedly instead.",
         "press_rf": "Frequency found. Now let go, then press the same button once."
       },
       "error": {
