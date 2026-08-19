@@ -1,4 +1,7 @@
-# Broadlink Commands
+<img src="logo.png" alt="Broadlink Commands" width="360">
+
+[![Validate](https://github.com/semichcsc-byte/broadlink-commands/actions/workflows/validate.yml/badge.svg)](https://github.com/semichcsc-byte/broadlink-commands/actions/workflows/validate.yml)
+[![HACS custom](https://img.shields.io/badge/HACS-custom-41BDF5.svg)](https://hacs.xyz)
 
 Learn IR and RF codes from a Broadlink remote and get a Home Assistant button for
 each one. No add-on, no Docker, no external database — the codes live in the

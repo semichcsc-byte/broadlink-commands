@@ -1,0 +1,26 @@
+name: Validate
+
+on:
+  push:
+  pull_request:
+  schedule:
+    # Both actions validate against current Home Assistant, so this catches
+    # breakage introduced by Home Assistant releases, not just by our commits.
+    - cron: "0 4 * * 1"
+
+jobs:
+  hassfest:
+    name: Home Assistant manifest
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: home-assistant/actions/hassfest@master
+
+  hacs:
+    name: HACS
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: hacs/action@main
+        with:
+          category: integration
