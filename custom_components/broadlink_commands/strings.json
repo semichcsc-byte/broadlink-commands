@@ -1,0 +1,75 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Broadlink",
+        "description": "Found {count} device(s) on the network.",
+        "data": {
+          "host": "Device"
+        }
+      },
+      "manual": {
+        "title": "Enter an address",
+        "description": "Use this when the device is on another VLAN or subnet, where discovery broadcasts do not reach.",
+        "data": {
+          "host": "IP address or hostname"
+        }
+      }
+    },
+    "error": {
+      "cannot_connect": "Could not reach that device."
+    },
+    "abort": {
+      "already_configured": "That device is already set up.",
+      "cannot_connect": "Could not reach that device."
+    }
+  },
+  "config_subentries": {
+    "command": {
+      "title": "Command",
+      "initiate_flow": {
+        "user": "Learn a command"
+      },
+      "entry_type": "Command",
+      "step": {
+        "user": {
+          "title": "What kind of remote?",
+          "description": "Infrared is used by TVs, air conditioners and most home electronics. Radio frequency is used by blinds, awnings, gates and doorbells.",
+          "menu_options": {
+            "learn_ir": "Infrared",
+            "hold_rf": "Radio frequency"
+          }
+        },
+        "failed": {
+          "title": "Nothing was captured",
+          "description": "The device stopped listening before a code arrived. Hold the remote closer and try again."
+        },
+        "name": {
+          "title": "Name this command",
+          "description": "Tick Test to send the code and check it does what you expect. Leave it unticked to save. {result}",
+          "data": {
+            "name": "Name",
+            "area_id": "Area",
+            "test": "Test before saving"
+          }
+        }
+      },
+      "progress": {
+        "learn_ir": "Point the remote at the device and press the button once.",
+        "hold_rf": "Press and hold the button until this step finishes. It is searching for the right frequency.",
+        "press_rf": "Frequency found. Now let go, then press the same button once."
+      },
+      "error": {
+        "cannot_connect": "Could not reach the device."
+      },
+      "abort": {
+        "cannot_connect": "Could not reach the device."
+      }
+    }
+  },
+  "exceptions": {
+    "send_failed": {
+      "message": "Could not reach the Broadlink device."
+    }
+  }
+}

@@ -1,0 +1,75 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Broadlink",
+        "description": "Encontrados {count} aparelhos na rede.",
+        "data": {
+          "host": "Aparelho"
+        }
+      },
+      "manual": {
+        "title": "Indicar um endereço",
+        "description": "Usa isto quando o aparelho está noutra VLAN ou sub-rede, onde a deteção por broadcast não chega.",
+        "data": {
+          "host": "Endereço IP ou nome"
+        }
+      }
+    },
+    "error": {
+      "cannot_connect": "Não foi possível alcançar esse aparelho."
+    },
+    "abort": {
+      "already_configured": "Esse aparelho já está configurado.",
+      "cannot_connect": "Não foi possível alcançar esse aparelho."
+    }
+  },
+  "config_subentries": {
+    "command": {
+      "title": "Comando",
+      "initiate_flow": {
+        "user": "Aprender um comando"
+      },
+      "entry_type": "Comando",
+      "step": {
+        "user": {
+          "title": "Que tipo de comando?",
+          "description": "Infravermelhos é o que usam televisões, ar condicionado e a maioria dos electrodomésticos. Radiofrequência é o que usam estores, toldos, portões e campainhas.",
+          "menu_options": {
+            "learn_ir": "Infravermelhos",
+            "hold_rf": "Radiofrequência"
+          }
+        },
+        "failed": {
+          "title": "Não foi captado nada",
+          "description": "O aparelho deixou de escutar antes de chegar um código. Aproxima o comando e tenta outra vez."
+        },
+        "name": {
+          "title": "Dar nome ao comando",
+          "description": "Marca Testar para enviar o código e confirmar que faz o que esperas. Deixa desmarcado para guardar. {result}",
+          "data": {
+            "name": "Nome",
+            "area_id": "Divisão",
+            "test": "Testar antes de guardar"
+          }
+        }
+      },
+      "progress": {
+        "learn_ir": "Aponta o comando ao aparelho e prime o botão uma vez.",
+        "hold_rf": "Mantém o botão premido até este passo terminar. Está à procura da frequência certa.",
+        "press_rf": "Frequência encontrada. Larga o botão e prime-o uma vez."
+      },
+      "error": {
+        "cannot_connect": "Não foi possível alcançar o aparelho."
+      },
+      "abort": {
+        "cannot_connect": "Não foi possível alcançar o aparelho."
+      }
+    }
+  },
+  "exceptions": {
+    "send_failed": {
+      "message": "Não foi possível alcançar o aparelho Broadlink."
+    }
+  }
+}

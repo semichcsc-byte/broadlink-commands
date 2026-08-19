@@ -1,0 +1,288 @@
+"""Config and subentry flows for Broadlink Commands."""
+
+from __future__ import annotations
+
+import asyncio
+import logging
+from typing import Any
+
+import voluptuous as vol
+from homeassistant.config_entries import (
+    ConfigEntry,
+    ConfigFlow,
+    ConfigFlowResult,
+    ConfigSubentryFlow,
+    SubentryFlowResult,
+)
+from homeassistant.core import callback
+from homeassistant.helpers import selector
+
+from . import device as bl
+from .const import (
+    CODE_TYPE_IR,
+    CODE_TYPE_RF,
+    CONF_AREA_ID,
+    CONF_CODE,
+    CONF_CODE_TYPE,
+    CONF_DEVTYPE,
+    CONF_HOST,
+    CONF_MAC,
+    CONF_MODEL,
+    CONF_TEST,
+    DOMAIN,
+    SUBENTRY_TYPE_COMMAND,
+)
+
+_LOGGER = logging.getLogger(__name__)
+
+MANUAL = "manual"
+
+
+class BroadlinkCommandsConfigFlow(ConfigFlow, domain=DOMAIN):
+    """Find a Broadlink device and set it up."""
+
+    VERSION = 1
+
+    def __init__(self) -> None:
+        self._devices: dict[str, dict[str, Any]] = {}
+
+    @classmethod
+    @callback
+    def async_get_supported_subentry_types(
+        cls, config_entry: ConfigEntry
+    ) -> dict[str, type[ConfigSubentryFlow]]:
+        return {SUBENTRY_TYPE_COMMAND: CommandSubentryFlowHandler}
+
+    async def async_step_user(
+        self, user_input: dict[str, Any] | None = None
+    ) -> ConfigFlowResult:
+        if user_input is not None:
+            if user_input[CONF_HOST] == MANUAL:
+                return await self.async_step_manual()
+            return await self._create(self._devices[user_input[CONF_HOST]])
+
+        try:
+            devices = await self.hass.async_add_executor_job(bl.discover)
+        except OSError:
+            _LOGGER.exception("Discovery failed")
+            devices = []
+
+        self._devices = {d["mac"]: d for d in devices}
+        options = [
+            selector.SelectOptionDict(
+                value=mac, label=f"{d['model']} ({d['host']})"
+            )
+            for mac, d in self._devices.items()
+        ]
+        options.append(
+            selector.SelectOptionDict(value=MANUAL, label="Enter an address manually")
+        )
+
+        return self.async_show_form(
+            step_id="user",
+            data_schema=vol.Schema(
+                {
+                    vol.Required(CONF_HOST): selector.SelectSelector(
+                        selector.SelectSelectorConfig(options=options)
+                    )
+                }
+            ),
+            description_placeholders={"count": str(len(self._devices))},
+        )
+
+    async def async_step_manual(
+        self, user_input: dict[str, Any] | None = None
+    ) -> ConfigFlowResult:
+        """Broadcast discovery does not cross VLANs; this does."""
+        errors: dict[str, str] = {}
+        if user_input is not None:
+            try:
+                info = await self.hass.async_add_executor_job(
+                    bl.identify, user_input[CONF_HOST]
+                )
+            except OSError:
+                errors["base"] = "cannot_connect"
+            else:
+                return await self._create(info)
+
+        return self.async_show_form(
+            step_id="manual",
+            data_schema=vol.Schema({vol.Required(CONF_HOST): str}),
+            errors=errors,
+        )
+
+    async def _create(self, info: dict[str, Any]) -> ConfigFlowResult:
+        await self.async_set_unique_id(info["mac"])
+        self._abort_if_unique_id_configured(updates={CONF_HOST: info["host"]})
+
+        try:
+            await self.hass.async_add_executor_job(
+                bl.connect, info["host"], info["mac"], info["devtype"]
+            )
+        except OSError:
+            return self.async_abort(reason="cannot_connect")
+
+        return self.async_create_entry(
+            title=info["model"],
+            data={
+                CONF_HOST: info["host"],
+                CONF_MAC: info["mac"],
+                CONF_DEVTYPE: info["devtype"],
+                CONF_MODEL: info["model"],
+            },
+        )
+
+
+class CommandSubentryFlowHandler(ConfigSubentryFlow):
+    """Learn one command and turn it into a button."""
+
+    def __init__(self) -> None:
+        self._code: str | None = None
+        self._code_type: str | None = None
+        self._task: asyncio.Task | None = None
+        # The RF sweep and the packet capture must use the same authenticated handle.
+        self._device_handle: Any = None
+
+    @property
+    def _entry(self) -> ConfigEntry:
+        return self._get_entry()
+
+    async def _device(self) -> Any:
+        data = self._entry.data
+        return await self.hass.async_add_executor_job(
+            bl.connect, data[CONF_HOST], data[CONF_MAC], data[CONF_DEVTYPE]
+        )
+
+    async def async_step_user(
+        self, user_input: dict[str, Any] | None = None
+    ) -> SubentryFlowResult:
+        return self.async_show_menu(
+            step_id="user", menu_options=["learn_ir", "hold_rf"]
+        )
+
+    # --- IR: one press is enough -------------------------------------------------
+
+    async def async_step_learn_ir(
+        self, user_input: dict[str, Any] | None = None
+    ) -> SubentryFlowResult:
+        if self._task is None:
+            self._code_type = CODE_TYPE_IR
+            self._task = self.hass.async_create_task(self._learn_ir())
+
+        if not self._task.done():
+            return self.async_show_progress(
+                step_id="learn_ir",
+                progress_action="learn_ir",
+                progress_task=self._task,
+            )
+
+        return self._finish_task()
+
+    async def _learn_ir(self) -> str:
+        device = await self._device()
+        return await self.hass.async_add_executor_job(bl.learn_ir, device)
+
+    # --- RF: sweep for the frequency, then capture the packet --------------------
+
+    async def async_step_hold_rf(
+        self, user_input: dict[str, Any] | None = None
+    ) -> SubentryFlowResult:
+        if self._task is None:
+            self._code_type = CODE_TYPE_RF
+            self._task = self.hass.async_create_task(self._sweep_rf())
+
+        if not self._task.done():
+            return self.async_show_progress(
+                step_id="hold_rf",
+                progress_action="hold_rf",
+                progress_task=self._task,
+            )
+
+        try:
+            self._device_handle = self._task.result()
+        except (OSError, bl.LearnTimeout):
+            self._task = None
+            return self.async_show_progress_done(next_step_id="failed")
+
+        self._task = None
+        return self.async_show_progress_done(next_step_id="press_rf")
+
+    async def _sweep_rf(self) -> Any:
+        device = await self._device()
+        await self.hass.async_add_executor_job(bl.sweep_rf, device)
+        return device
+
+    async def async_step_press_rf(
+        self, user_input: dict[str, Any] | None = None
+    ) -> SubentryFlowResult:
+        if self._task is None:
+            self._task = self.hass.async_create_task(
+                self.hass.async_add_executor_job(bl.learn_rf, self._device_handle)
+            )
+
+        if not self._task.done():
+            return self.async_show_progress(
+                step_id="press_rf",
+                progress_action="press_rf",
+                progress_task=self._task,
+            )
+
+        return self._finish_task()
+
+    def _finish_task(self) -> SubentryFlowResult:
+        try:
+            self._code = self._task.result()
+        except (OSError, bl.LearnTimeout):
+            self._task = None
+            return self.async_show_progress_done(next_step_id="failed")
+
+        self._task = None
+        return self.async_show_progress_done(next_step_id="name")
+
+    async def async_step_failed(
+        self, user_input: dict[str, Any] | None = None
+    ) -> SubentryFlowResult:
+        if user_input is not None:
+            return await self.async_step_user()
+        return self.async_show_form(step_id="failed", data_schema=vol.Schema({}))
+
+    # --- Test, name, place -------------------------------------------------------
+
+    async def async_step_name(
+        self, user_input: dict[str, Any] | None = None
+    ) -> SubentryFlowResult:
+        """Let the code be tested as often as needed before it is saved."""
+        errors: dict[str, str] = {}
+        placeholders = {"result": ""}
+
+        if user_input is not None:
+            if user_input.get(CONF_TEST):
+                try:
+                    device = await self._device()
+                    await self.hass.async_add_executor_job(bl.send, device, self._code)
+                except OSError:
+                    errors["base"] = "cannot_connect"
+                else:
+                    placeholders["result"] = "Sent. If nothing happened, learn it again."
+            else:
+                return self.async_create_entry(
+                    title=user_input["name"],
+                    data={
+                        CONF_CODE: self._code,
+                        CONF_CODE_TYPE: self._code_type,
+                        CONF_AREA_ID: user_input.get(CONF_AREA_ID),
+                    },
+                )
+
+        return self.async_show_form(
+            step_id="name",
+            data_schema=vol.Schema(
+                {
+                    vol.Required("name", default=user_input.get("name") if user_input else vol.UNDEFINED): str,
+                    vol.Optional(CONF_AREA_ID): selector.AreaSelector(),
+                    vol.Optional(CONF_TEST, default=False): bool,
+                }
+            ),
+            errors=errors,
+            description_placeholders=placeholders,
+        )
