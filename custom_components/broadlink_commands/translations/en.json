@@ -37,7 +37,7 @@
           "description": "Infrared is used by TVs, air conditioners and most home electronics. Radio frequency is used by blinds, awnings, gates and doorbells.",
           "menu_options": {
             "learn_ir": "Infrared",
-            "hold_rf": "Radio frequency"
+            "learn_rf": "Radio frequency"
           }
         },
         "failed": {
@@ -57,7 +57,7 @@
       "progress": {
         "learn_ir": "Point the remote at the device and press the button once.",
         "hold_rf": "Press and hold the button until this step finishes, so the device can find the right frequency. If your remote stops transmitting while held, tap it repeatedly instead.",
-        "press_rf": "Frequency found. Now let go, then press the same button once."
+        "press_rf": "Press the button once. Press it again every few seconds until this step finishes."
       },
       "error": {
         "cannot_connect": "Could not reach the device."

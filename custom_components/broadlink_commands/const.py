@@ -11,6 +11,7 @@ CONF_CODE = "code"
 CONF_CODE_TYPE = "code_type"
 CONF_AREA_ID = "area_id"
 CONF_TEST = "test"
+CONF_FREQUENCY = "frequency"
 
 SUBENTRY_TYPE_COMMAND = "command"
 
@@ -19,6 +20,8 @@ CODE_TYPE_RF = "rf"
 
 DISCOVERY_TIMEOUT = 5
 # The device stops listening on its own; these bound our polling, not the device.
-LEARN_TIMEOUT = 30
-SWEEP_TIMEOUT = 30
+# Generous, because the user has to read the step, act, and sometimes walk to the
+# remote in between.
+LEARN_TIMEOUT = 60
+SWEEP_TIMEOUT = 60
 POLL_INTERVAL = 1

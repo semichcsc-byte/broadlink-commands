@@ -72,22 +72,26 @@ def learn_ir(device: Any) -> str:
     return _await_data(device)
 
 
-def sweep_rf(device: Any) -> None:
+def sweep_rf(device: Any) -> float:
     """Lock onto the remote's frequency. The button must be held down."""
     device.sweep_frequency()
     deadline = time.monotonic() + SWEEP_TIMEOUT
     while time.monotonic() < deadline:
         time.sleep(POLL_INTERVAL)
-        is_found, _frequency = device.check_frequency()
+        is_found, frequency = device.check_frequency()
         if is_found:
-            return
+            return frequency
     device.cancel_sweep_frequency()
     raise LearnTimeout("No RF frequency found")
 
 
-def learn_rf(device: Any) -> str:
-    """Capture one RF code. Must run after sweep_rf found the frequency."""
-    device.find_rf_packet()
+def learn_rf(device: Any, frequency: float | None = None) -> str:
+    """Capture one RF code.
+
+    With a frequency the device listens on it directly, so the sweep - and the
+    press-and-hold it requires - can be skipped entirely.
+    """
+    device.find_rf_packet(frequency)
     return _await_data(device)
 
 

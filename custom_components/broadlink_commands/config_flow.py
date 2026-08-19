@@ -25,6 +25,7 @@ from .const import (
     CONF_CODE,
     CONF_CODE_TYPE,
     CONF_DEVTYPE,
+    CONF_FREQUENCY,
     CONF_HOST,
     CONF_MAC,
     CONF_MODEL,
@@ -142,10 +143,24 @@ class CommandSubentryFlowHandler(ConfigSubentryFlow):
         self._task: asyncio.Task | None = None
         # The RF sweep and the packet capture must use the same authenticated handle.
         self._device_handle: Any = None
+        self._frequency: float | None = None
+        self._swept: bool = False
 
     @property
     def _entry(self) -> ConfigEntry:
         return self._get_entry()
+
+    def _known_frequency(self) -> float | None:
+        """Frequency learned previously, so the sweep can be skipped.
+
+        Kept on the subentries rather than the config entry: writing to the entry
+        mid-flow would trigger a reload while the flow is still running.
+        """
+        for subentry in reversed(list(self._entry.subentries.values())):
+            frequency = subentry.data.get(CONF_FREQUENCY)
+            if frequency:
+                return float(frequency)
+        return None
 
     async def _device(self) -> Any:
         data = self._entry.data
@@ -157,7 +172,7 @@ class CommandSubentryFlowHandler(ConfigSubentryFlow):
         self, user_input: dict[str, Any] | None = None
     ) -> SubentryFlowResult:
         return self.async_show_menu(
-            step_id="user", menu_options=["learn_ir", "hold_rf"]
+            step_id="user", menu_options=["learn_ir", "learn_rf"]
         )
 
     # --- IR: one press is enough -------------------------------------------------
@@ -184,11 +199,23 @@ class CommandSubentryFlowHandler(ConfigSubentryFlow):
 
     # --- RF: sweep for the frequency, then capture the packet --------------------
 
+    async def async_step_learn_rf(
+        self, user_input: dict[str, Any] | None = None
+    ) -> SubentryFlowResult:
+        """Skip the sweep when this device already found a frequency."""
+        self._code_type = CODE_TYPE_RF
+        self._frequency = self._known_frequency()
+        if self._frequency is not None:
+            self._device_handle = await self._device()
+            return await self.async_step_press_rf()
+        return await self.async_step_hold_rf()
+
     async def async_step_hold_rf(
         self, user_input: dict[str, Any] | None = None
     ) -> SubentryFlowResult:
         if self._task is None:
             self._code_type = CODE_TYPE_RF
+            self._swept = True
             self._task = self.hass.async_create_task(self._sweep_rf())
 
         if not self._task.done():
@@ -199,7 +226,7 @@ class CommandSubentryFlowHandler(ConfigSubentryFlow):
             )
 
         try:
-            self._device_handle = self._task.result()
+            self._device_handle, self._frequency = self._task.result()
         except (OSError, bl.LearnTimeout):
             self._task = None
             return self.async_show_progress_done(next_step_id="failed")
@@ -207,10 +234,10 @@ class CommandSubentryFlowHandler(ConfigSubentryFlow):
         self._task = None
         return self.async_show_progress_done(next_step_id="press_rf")
 
-    async def _sweep_rf(self) -> Any:
+    async def _sweep_rf(self) -> tuple[Any, float]:
         device = await self._device()
-        await self.hass.async_add_executor_job(bl.sweep_rf, device)
-        return device
+        frequency = await self.hass.async_add_executor_job(bl.sweep_rf, device)
+        return device, frequency
 
     async def async_step_press_rf(
         self, user_input: dict[str, Any] | None = None
@@ -225,11 +252,24 @@ class CommandSubentryFlowHandler(ConfigSubentryFlow):
                 progress_task=self._task,
             )
 
-        return self._finish_task()
+        try:
+            self._code = self._task.result()
+        except (OSError, bl.LearnTimeout):
+            self._task = None
+            # The remembered frequency may belong to a different remote, so fall
+            # back to a full sweep rather than declaring failure.
+            if not self._swept:
+                self._frequency = None
+                return self.async_show_progress_done(next_step_id="hold_rf")
+            return self.async_show_progress_done(next_step_id="failed")
+
+        self._task = None
+        return self.async_show_progress_done(next_step_id="name")
 
     async def _learn_rf(self) -> str:
-        # Reuses the handle from the sweep: the frequency is bound to that session.
-        return await self.hass.async_add_executor_job(bl.learn_rf, self._device_handle)
+        return await self.hass.async_add_executor_job(
+            bl.learn_rf, self._device_handle, self._frequency
+        )
 
     def _finish_task(self) -> SubentryFlowResult:
         try:
@@ -274,6 +314,7 @@ class CommandSubentryFlowHandler(ConfigSubentryFlow):
                         CONF_CODE: self._code,
                         CONF_CODE_TYPE: self._code_type,
                         CONF_AREA_ID: user_input.get(CONF_AREA_ID),
+                        CONF_FREQUENCY: self._frequency,
                     },
                 )
 

@@ -37,7 +37,7 @@
           "description": "Infravermelhos é o que usam televisões, ar condicionado e a maioria dos electrodomésticos. Radiofrequência é o que usam estores, toldos, portões e campainhas.",
           "menu_options": {
             "learn_ir": "Infravermelhos",
-            "hold_rf": "Radiofrequência"
+            "learn_rf": "Radiofrequ\u00eancia"
           }
         },
         "failed": {
@@ -57,7 +57,7 @@
       "progress": {
         "learn_ir": "Aponta o comando ao aparelho e prime o botão uma vez.",
         "hold_rf": "Mantém o botão premido até este passo terminar, para o aparelho encontrar a frequência certa. Se o teu comando deixar de transmitir enquanto o seguras, carrega repetidamente.",
-        "press_rf": "Frequência encontrada. Larga o botão e prime-o uma vez."
+        "press_rf": "Prime o botão uma vez. Volta a premir de poucos em poucos segundos até este passo terminar."
       },
       "error": {
         "cannot_connect": "Não foi possível alcançar o aparelho."
