@@ -9,9 +9,10 @@ from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import Platform
 from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import ConfigEntryNotReady
+from homeassistant.helpers import device_registry as dr
 
 from . import device as bl
-from .const import CONF_DEVTYPE, CONF_HOST, CONF_MAC
+from .const import CONF_DEVTYPE, CONF_HOST, CONF_MAC, CONF_MODEL, DOMAIN
 
 PLATFORMS = [Platform.BUTTON]
 
@@ -44,6 +45,18 @@ async def async_setup_entry(hass: HomeAssistant, entry: BroadlinkConfigEntry) ->
         raise ConfigEntryNotReady(f"Cannot reach {runtime.host}") from err
 
     entry.runtime_data = runtime
+
+    # Owned by the config entry rather than by a command, so that adding a command
+    # cannot reassign it and orphan the previous command's button.
+    dr.async_get(hass).async_get_or_create(
+        config_entry_id=entry.entry_id,
+        identifiers={(DOMAIN, entry.unique_id or entry.entry_id)},
+        connections={(dr.CONNECTION_NETWORK_MAC, dr.format_mac(runtime.mac))},
+        name=entry.title,
+        manufacturer="Broadlink",
+        model=entry.data.get(CONF_MODEL),
+    )
+
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
     entry.async_on_unload(entry.add_update_listener(_async_reload))
     return True
