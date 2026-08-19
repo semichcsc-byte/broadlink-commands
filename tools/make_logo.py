@@ -18,9 +18,18 @@ BLUE = (3, 169, 244)
 BLUE_DIM = (3, 169, 244, 90)
 BG_TOP = (28, 34, 43)
 BG_BOTTOM = (17, 21, 27)
+# Lifted, so the plate still has an edge against a dark surface.
+BG_TOP_DARK = (58, 69, 84)
+BG_BOTTOM_DARK = (38, 46, 57)
 WHITE = (255, 255, 255)
 
 SS = 4  # supersample factor, for smooth curves without antialiasing tricks
+
+
+def set_palette(palette: tuple[tuple[int, int, int], tuple[int, int, int]]) -> None:
+    """Swap the plate colours between the light-theme and dark-theme variants."""
+    global BG_TOP, BG_BOTTOM
+    BG_TOP, BG_BOTTOM = palette
 
 
 def _rounded_background(size: int) -> Image.Image:
@@ -164,7 +173,23 @@ def build_logo(width: int = 640, height: int = 240) -> Image.Image:
 
 
 if __name__ == "__main__":
+    brand = ROOT / "custom_components" / "broadlink_commands" / "brand"
+    brand.mkdir(parents=True, exist_ok=True)
+
+    # Home Assistant serves dark_* on dark themes; the light plate would
+    # otherwise disappear against the dark surface behind it.
+    variants = {"": (BG_TOP, BG_BOTTOM), "dark_": (BG_TOP_DARK, BG_BOTTOM_DARK)}
+
+    for prefix, palette in variants.items():
+        set_palette(palette)
+        build(256).save(brand / f"{prefix}icon.png")
+        build(512).save(brand / f"{prefix}icon@2x.png")
+        build_logo(640, 240).save(brand / f"{prefix}logo.png")
+        build_logo(1280, 480).save(brand / f"{prefix}logo@2x.png")
+
+    # Repository-level copies, for the README and GitHub.
+    set_palette(variants[""])
     build(256).save(ROOT / "icon.png")
-    build(512).save(ROOT / "icon@2x.png")
-    build_logo().save(ROOT / "logo.png")
-    print("wrote icon.png, icon@2x.png, logo.png")
+    build_logo(640, 240).save(ROOT / "logo.png")
+
+    print(f"wrote {len(list(brand.iterdir()))} brand images + README artwork")
