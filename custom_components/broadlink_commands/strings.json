@@ -57,6 +57,18 @@
           "title": "Nothing was captured",
           "description": "The device stopped listening before a code arrived. Hold the remote closer and try again."
         },
+        "learn_rf": {
+          "title": "Which frequency?",
+          "description": "Most remotes print their frequency on the back or inside the battery compartment. Typing it in is more reliable than scanning for it.",
+          "data": {
+            "frequency": "Frequency",
+            "scan": "Find it by holding the button"
+          },
+          "data_description": {
+            "frequency": "Any frequency already found on this device is filled in. Clear it, or tick the box below, to scan again.",
+            "scan": "Ignores the frequency above and sweeps for the remote instead. You will have to hold the button down."
+          }
+        },
         "name": {
           "title": "Name this command",
           "description": "Tick Test to send the code and check it does what you expect. Leave it unticked to save. {result}",

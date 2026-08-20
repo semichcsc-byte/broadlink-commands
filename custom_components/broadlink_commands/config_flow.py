@@ -33,6 +33,7 @@ from .const import (
     CONF_MODEL,
     CONF_RELEARN,
     CONF_REPEATS,
+    CONF_SCAN,
     CONF_TEST,
     DOMAIN,
     MAX_REPEATS,
@@ -46,6 +47,16 @@ MANUAL = "manual"
 REPEATS = selector.NumberSelector(
     selector.NumberSelectorConfig(
         min=0, max=MAX_REPEATS, step=1, mode=selector.NumberSelectorMode.BOX
+    )
+)
+
+FREQUENCY = selector.NumberSelector(
+    selector.NumberSelectorConfig(
+        min=300,
+        max=1000,
+        step=0.01,
+        mode=selector.NumberSelectorMode.BOX,
+        unit_of_measurement="MHz",
     )
 )
 
@@ -285,13 +296,38 @@ class CommandSubentryFlowHandler(ConfigSubentryFlow):
     async def async_step_learn_rf(
         self, user_input: dict[str, Any] | None = None
     ) -> SubentryFlowResult:
-        """Skip the sweep when this device already found a frequency."""
+        """Choose how to get the frequency before capturing the packet.
+
+        Remotes print their frequency on the label, and typing it in beats a
+        sweep: the sweep only reports what it happened to lock onto, which can be
+        close enough for a lamp but not for a fussier receiver.
+        """
         self._code_type = CODE_TYPE_RF
-        self._frequency = self._known_frequency()
-        if self._frequency is not None:
+
+        if user_input is not None:
+            frequency = user_input.get(CONF_FREQUENCY)
+            if user_input.get(CONF_SCAN) or not frequency:
+                self._frequency = None
+                return await self.async_step_hold_rf()
+            self._frequency = float(frequency)
             self._device_handle = await self._device()
             return await self.async_step_press_rf()
-        return await self.async_step_hold_rf()
+
+        known = self._known_frequency()
+        frequency_field = (
+            vol.Optional(CONF_FREQUENCY, default=known)
+            if known
+            else vol.Optional(CONF_FREQUENCY)
+        )
+        return self.async_show_form(
+            step_id="learn_rf",
+            data_schema=vol.Schema(
+                {
+                    frequency_field: FREQUENCY,
+                    vol.Optional(CONF_SCAN, default=False): bool,
+                }
+            ),
+        )
 
     async def async_step_hold_rf(
         self, user_input: dict[str, Any] | None = None

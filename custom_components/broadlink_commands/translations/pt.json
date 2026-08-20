@@ -57,6 +57,18 @@
           "title": "Não foi captado nada",
           "description": "O aparelho deixou de escutar antes de chegar um código. Aproxima o comando e tenta outra vez."
         },
+        "learn_rf": {
+          "title": "Que frequ\u00eancia?",
+          "description": "A maioria dos comandos tem a frequ\u00eancia impressa atr\u00e1s ou dentro do compartimento das pilhas. Indic\u00e1-la \u00e9 mais fi\u00e1vel do que procur\u00e1-la.",
+          "data": {
+            "frequency": "Frequ\u00eancia",
+            "scan": "Procurar mantendo o bot\u00e3o premido"
+          },
+          "data_description": {
+            "frequency": "Vem preenchida com a frequ\u00eancia j\u00e1 encontrada neste aparelho. Apaga-a, ou marca a caixa abaixo, para procurar de novo.",
+            "scan": "Ignora a frequ\u00eancia acima e faz uma varredura \u00e0 procura do comando. Ter\u00e1s de manter o bot\u00e3o premido."
+          }
+        },
         "name": {
           "title": "Dar nome ao comando",
           "description": "Marca Testar para enviar o código e confirmar que faz o que esperas. Deixa desmarcado para guardar. {result}",
