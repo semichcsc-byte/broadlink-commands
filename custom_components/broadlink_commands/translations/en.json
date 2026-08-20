@@ -38,7 +38,11 @@
           "data": {
             "name": "Name",
             "area_id": "Area",
+            "repeats": "Repeats",
             "relearn": "Learn the code again"
+          },
+          "data_description": {
+            "repeats": "Extra times the code is sent per press. Leave at 0 for most things. Some receivers, fan motors especially, only react when the code arrives several times in a row; try 5."
           }
         },
         "user": {
@@ -59,7 +63,11 @@
           "data": {
             "name": "Name",
             "area_id": "Area",
+            "repeats": "Repeats",
             "test": "Test before saving"
+          },
+          "data_description": {
+            "repeats": "Extra times the code is sent per press. Leave at 0 for most things. Some receivers, fan motors especially, only react when the code arrives several times in a row; try 5."
           }
         }
       },

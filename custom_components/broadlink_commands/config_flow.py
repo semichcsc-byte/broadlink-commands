@@ -32,14 +32,26 @@ from .const import (
     CONF_MAC,
     CONF_MODEL,
     CONF_RELEARN,
+    CONF_REPEATS,
     CONF_TEST,
     DOMAIN,
+    MAX_REPEATS,
     SUBENTRY_TYPE_COMMAND,
 )
 
 _LOGGER = logging.getLogger(__name__)
 
 MANUAL = "manual"
+
+REPEATS = selector.NumberSelector(
+    selector.NumberSelectorConfig(
+        min=0, max=MAX_REPEATS, step=1, mode=selector.NumberSelectorMode.BOX
+    )
+)
+
+
+def _repeats(data: dict[str, Any]) -> int:
+    return int(data.get(CONF_REPEATS) or 0)
 
 
 class BroadlinkCommandsConfigFlow(ConfigFlow, domain=DOMAIN):
@@ -213,6 +225,9 @@ class CommandSubentryFlowHandler(ConfigSubentryFlow):
                 {
                     vol.Required("name", default=subentry.title): str,
                     area_field: selector.AreaSelector(),
+                    vol.Optional(
+                        CONF_REPEATS, default=_repeats(subentry.data)
+                    ): REPEATS,
                     vol.Optional(CONF_RELEARN, default=False): bool,
                 }
             ),
@@ -232,6 +247,7 @@ class CommandSubentryFlowHandler(ConfigSubentryFlow):
                 CONF_CODE_TYPE: self._code_type,
                 CONF_AREA_ID: area_id,
                 CONF_FREQUENCY: self._frequency,
+                CONF_REPEATS: _repeats(user_input),
             },
         )
 
@@ -370,7 +386,9 @@ class CommandSubentryFlowHandler(ConfigSubentryFlow):
             if user_input.get(CONF_TEST):
                 try:
                     device = await self._device()
-                    await self.hass.async_add_executor_job(bl.send, device, self._code)
+                    await self.hass.async_add_executor_job(
+                        bl.send, device, self._code, _repeats(user_input)
+                    )
                 except OSError:
                     errors["base"] = "cannot_connect"
                 else:
@@ -385,6 +403,7 @@ class CommandSubentryFlowHandler(ConfigSubentryFlow):
                         CONF_CODE_TYPE: self._code_type,
                         CONF_AREA_ID: user_input.get(CONF_AREA_ID),
                         CONF_FREQUENCY: self._frequency,
+                        CONF_REPEATS: _repeats(user_input),
                     },
                 )
 
@@ -405,6 +424,7 @@ class CommandSubentryFlowHandler(ConfigSubentryFlow):
                 {
                     name_field: str,
                     area_field: selector.AreaSelector(),
+                    vol.Optional(CONF_REPEATS, default=_repeats(previous)): REPEATS,
                     vol.Optional(CONF_TEST, default=False): bool,
                 }
             ),

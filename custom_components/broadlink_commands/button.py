@@ -13,7 +13,14 @@ from homeassistant.helpers.device_registry import DeviceInfo
 from homeassistant.helpers.entity_platform import AddConfigEntryEntitiesCallback
 
 from . import BroadlinkConfigEntry, BroadlinkRuntime, device as bl
-from .const import CODE_TYPE_RF, CONF_AREA_ID, CONF_CODE, CONF_CODE_TYPE, DOMAIN
+from .const import (
+    CODE_TYPE_RF,
+    CONF_AREA_ID,
+    CONF_CODE,
+    CONF_CODE_TYPE,
+    CONF_REPEATS,
+    DOMAIN,
+)
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -56,6 +63,7 @@ class BroadlinkCommandButton(ButtonEntity):
     def __init__(self, entry: BroadlinkConfigEntry, subentry: ConfigSubentry) -> None:
         self._runtime: BroadlinkRuntime = entry.runtime_data
         self._code: str = subentry.data[CONF_CODE]
+        self._repeats: int = int(subentry.data.get(CONF_REPEATS) or 0)
         self._area_id: str | None = subentry.data.get(CONF_AREA_ID)
         self._attr_name = subentry.title
         self._attr_unique_id = subentry.subentry_id
@@ -79,7 +87,9 @@ class BroadlinkCommandButton(ButtonEntity):
     async def async_press(self) -> None:
         try:
             device = await self.hass.async_add_executor_job(self._runtime.connect)
-            await self.hass.async_add_executor_job(bl.send, device, self._code)
+            await self.hass.async_add_executor_job(
+                bl.send, device, self._code, self._repeats
+            )
         except OSError as err:
             raise HomeAssistantError(
                 f"Could not reach {self._runtime.host}: {err}"

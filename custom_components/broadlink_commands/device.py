@@ -125,6 +125,14 @@ def _await_data(device: Any) -> str:
     raise LearnTimeout("No code received")
 
 
-def send(device: Any, code: str) -> None:
-    """Replay a stored code."""
-    device.send_data(bytes.fromhex(code))
+def send(device: Any, code: str, repeats: int = 0) -> None:
+    """Replay a stored code.
+
+    Byte 1 of the packet is how many extra times the device retransmits it back
+    to back. Some receivers - fan motors especially - ignore a lone frame,
+    because a real remote repeats it for as long as the button is held.
+    """
+    data = bytearray.fromhex(code)
+    if repeats:
+        data[1] = min(repeats, 0xFF)
+    device.send_data(bytes(data))
