@@ -17,57 +17,112 @@ but stores codes in its own database, so nothing it captures becomes an entity.
 This integration does the learning in Home Assistant's own config flow and creates
 a `button` entity per command, grouped under a real device.
 
+## What you need
+
+- Home Assistant 2025.3 or newer
+- A Broadlink RM mini, RM pro, RM4 mini or RM4 pro
+- The device already on your Wi-Fi, set up once with the Broadlink app
+
+Devices that cannot learn codes are filtered out, so if yours is not on the list
+above it will not appear.
+
 ## Install
 
-Add this repository to HACS as a custom repository (category: Integration), install
-it, and restart Home Assistant. Then go to **Settings → Devices & Services → Add
-integration → Broadlink Commands**.
+### With HACS
 
-## Setting up the device
+[![Open your Home Assistant instance and open a repository inside the Home Assistant Community Store.](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=semichcsc-byte&repository=broadlink-commands&category=integration)
 
-The config flow scans the network and lists the Broadlink devices it finds.
+That button opens this repository straight in your HACS. Press **Download**, then
+restart Home Assistant.
 
-Broadcast discovery does not cross VLANs or subnets. If your device is on a
-separate network — an IoT VLAN, for example — pick **Enter an address manually**
-and give it the IP. Control itself is plain UDP and routes fine; only the discovery
-broadcast is limited.
+To add it by hand instead:
 
-Supported: RM mini, RM pro, RM4 mini and RM4 pro. Devices that cannot learn are
-filtered out of the list.
+1. Open **HACS**
+2. Top right **⋮** → **Custom repositories**
+3. Repository: `https://github.com/semichcsc-byte/broadlink-commands`
+4. Type: **Integration** → **Add**
+5. Search HACS for *Broadlink Commands*, open it, press **Download**
+6. Restart Home Assistant
 
-## Learning a command
+### Without HACS
 
-On the device page, choose **Learn a command**.
+Copy the `custom_components/broadlink_commands` folder into your Home Assistant
+`config/custom_components/` folder, so you end up with
+`config/custom_components/broadlink_commands/manifest.json`. Restart Home
+Assistant.
 
-**Infrared** — press the button on your remote once when asked.
+## Set up your remote
 
-**Radio frequency** — two steps, because the device has to find the frequency
-first. Hold the button down until the step completes, then let go and press it
-once.
+[![Open your Home Assistant instance and start setting up a new integration.](https://my.home-assistant.io/badges/config_flow_start.svg)](https://my.home-assistant.io/redirect/config_flow_start/?domain=broadlink_commands)
 
-Either way you then get a screen to name the command, put it in an area, and
-optionally send the code to check it does what you expect before saving. Testing
-does not save anything, so you can try as many times as you need.
+Or go to **Settings → Devices & services → Add integration** and search for
+**Broadlink Commands**.
 
-Each saved command becomes a button entity under the device.
+You get a list of the Broadlink devices found on the network. Pick yours, and that
+is the whole setup.
 
-## Editing a command
+**If the list is empty**, choose **Enter an address manually** and type the
+device's IP. Discovery uses a network broadcast, and broadcasts do not cross VLANs
+or subnets, so a device on a separate IoT network will never show up in the list
+even though it is perfectly reachable. Everything after discovery is ordinary
+traffic and routes fine.
 
-Use the command's overflow menu on the integration page.
+## Learn a command
 
-Renaming or moving a command to another area keeps the same entity, so anything
-already pointing at it — dashboards, automations, scripts — keeps working. Tick
-**Learn the code again** to recapture the code while keeping the name, the area
-and the entity.
+On the integration's page, press **Learn a command**.
 
-## Notes
+**Infrared** — press the button on your remote once, when asked.
 
-- Codes are stored in the config entry, so they survive restarts and are included
-  in Home Assistant backups.
+**Radio frequency** — the first RF command takes two steps, because the device
+has to find the frequency first. Hold the button down until the step finishes,
+then release it and press it once. Later RF commands on the same device reuse that
+frequency, so they are a single press.
+
+Then name the command and choose an area. Tick **Test before saving** to fire the
+code and check it does the right thing; nothing is saved until you leave that box
+unticked, so try as often as you like.
+
+Each command you save becomes a button entity, grouped under the remote.
+
+## Edit a command
+
+Open the command from the integration's page.
+
+Renaming it or moving it to another area keeps the same entity, so dashboards,
+automations and scripts carry on working. Tick **Learn the code again** to
+recapture the code and keep everything else.
+
+## If something does not work
+
+**The button does nothing, or only half works.** Learn the command again. RF
+captures fail silently more often than you would think — the code gets saved, it
+just is not quite right. Relearning fixes almost every case of a command that
+behaves oddly.
+
+**Nothing gets captured.** Hold the remote closer to the Broadlink, within a metre
+or so, and make sure its batteries are good.
+
+**It worked and then stopped.** Check the device still has the same IP. If your
+router hands out a new one, set the address again by reconfiguring the
+integration, or give the device a static lease.
+
+**The Broadlink app locked it.** The app can lock a device, which blocks anything
+else from controlling it. This integration clears that lock by itself whenever it
+connects, so there is nothing for you to do.
+
+**The frequency looks wrong.** Editing an RF command shows the frequency that was
+found. Remotes usually print theirs on the back or inside the battery compartment.
+If they disagree, correct it and tick **Learn the code again**. Clearing the field
+scans from scratch. This is rarely the problem — try relearning first.
+
+## How it works
+
+- Codes live in the config entry, so they survive restarts and are included in
+  Home Assistant backups. There is no database and nothing to back up separately.
 - Removing a command removes its button.
-- The device is contacted only when a button is pressed, and authentication is
-  redone each time, so a device that reboots or changes address recovers on its
-  own once the address is updated.
+- The device is contacted only when you press a button, and authenticated afresh
+  each time, so one that reboots or changes address recovers on its own.
+- Nothing leaves your network. The Broadlink cloud is not used.
 
 ## Licence
 
