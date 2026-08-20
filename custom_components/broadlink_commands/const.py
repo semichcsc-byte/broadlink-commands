@@ -13,7 +13,6 @@ CONF_AREA_ID = "area_id"
 CONF_TEST = "test"
 CONF_RELEARN = "relearn"
 CONF_FREQUENCY = "frequency"
-CONF_REPEATS = "repeats"
 
 SUBENTRY_TYPE_COMMAND = "command"
 
@@ -27,6 +26,3 @@ DISCOVERY_TIMEOUT = 5
 LEARN_TIMEOUT = 60
 SWEEP_TIMEOUT = 60
 POLL_INTERVAL = 1
-
-# Beyond this the device spends so long transmitting that the press feels stuck.
-MAX_REPEATS = 20

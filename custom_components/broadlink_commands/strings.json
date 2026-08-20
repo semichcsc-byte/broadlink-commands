@@ -38,12 +38,10 @@
           "data": {
             "name": "Name",
             "area_id": "Area",
-            "repeats": "Repeats",
             "frequency": "Frequency",
             "relearn": "Learn the code again"
           },
           "data_description": {
-            "repeats": "Extra times the code is sent per press. Leave at 0 for most things. Some receivers, fan motors especially, only react when the code arrives several times in a row; try 5.",
             "frequency": "Found by scanning, and normally best left alone. If the command does not work, check the figure printed on the remote and correct it here, then tick Learn again. Clearing it scans from scratch."
           }
         },
@@ -65,11 +63,7 @@
           "data": {
             "name": "Name",
             "area_id": "Area",
-            "repeats": "Repeats",
             "test": "Test before saving"
-          },
-          "data_description": {
-            "repeats": "Extra times the code is sent per press. Leave at 0 for most things. Some receivers, fan motors especially, only react when the code arrives several times in a row; try 5."
           }
         }
       },

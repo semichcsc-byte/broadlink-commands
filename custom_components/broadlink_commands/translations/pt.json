@@ -38,12 +38,10 @@
           "data": {
             "name": "Nome",
             "area_id": "Divis\u00e3o",
-            "repeats": "Repeti\u00e7\u00f5es",
             "frequency": "Frequ\u00eancia",
             "relearn": "Aprender o c\u00f3digo de novo"
           },
           "data_description": {
-            "repeats": "Vezes extra que o c\u00f3digo \u00e9 enviado em cada toque. Deixa a 0 para quase tudo. H\u00e1 receptores, sobretudo motores de ventoinha, que s\u00f3 reagem quando o c\u00f3digo chega v\u00e1rias vezes seguidas; experimenta 5.",
             "frequency": "Encontrada por varredura, e normalmente n\u00e3o se mexe. Se o comando n\u00e3o funcionar, confirma o valor impresso no comando e corrige aqui, depois marca Aprender de novo. Apagar o campo faz nova varredura."
           }
         },
@@ -65,11 +63,7 @@
           "data": {
             "name": "Nome",
             "area_id": "Divisão",
-            "repeats": "Repeti\u00e7\u00f5es",
             "test": "Testar antes de guardar"
-          },
-          "data_description": {
-            "repeats": "Vezes extra que o c\u00f3digo \u00e9 enviado em cada toque. Deixa a 0 para quase tudo. H\u00e1 receptores, sobretudo motores de ventoinha, que s\u00f3 reagem quando o c\u00f3digo chega v\u00e1rias vezes seguidas; experimenta 5."
           }
         }
       },
