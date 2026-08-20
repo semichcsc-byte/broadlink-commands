@@ -14,7 +14,6 @@ CONF_TEST = "test"
 CONF_RELEARN = "relearn"
 CONF_FREQUENCY = "frequency"
 CONF_REPEATS = "repeats"
-CONF_SCAN = "scan"
 
 SUBENTRY_TYPE_COMMAND = "command"
 

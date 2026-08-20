@@ -39,10 +39,12 @@
             "name": "Name",
             "area_id": "Area",
             "repeats": "Repeats",
+            "frequency": "Frequency",
             "relearn": "Learn the code again"
           },
           "data_description": {
-            "repeats": "Extra times the code is sent per press. Leave at 0 for most things. Some receivers, fan motors especially, only react when the code arrives several times in a row; try 5."
+            "repeats": "Extra times the code is sent per press. Leave at 0 for most things. Some receivers, fan motors especially, only react when the code arrives several times in a row; try 5.",
+            "frequency": "Found by scanning, and normally best left alone. If the command does not work, check the figure printed on the remote and correct it here, then tick Learn again. Clearing it scans from scratch."
           }
         },
         "user": {
@@ -56,18 +58,6 @@
         "failed": {
           "title": "Nothing was captured",
           "description": "The device stopped listening before a code arrived. Hold the remote closer and try again."
-        },
-        "learn_rf": {
-          "title": "Which frequency?",
-          "description": "Most remotes print their frequency on the back or inside the battery compartment. Typing it in is more reliable than scanning for it.",
-          "data": {
-            "frequency": "Frequency",
-            "scan": "Find it by holding the button"
-          },
-          "data_description": {
-            "frequency": "Any frequency already found on this device is filled in. Clear it, or tick the box below, to scan again.",
-            "scan": "Ignores the frequency above and sweeps for the remote instead. You will have to hold the button down."
-          }
         },
         "name": {
           "title": "Name this command",

@@ -33,7 +33,6 @@ from .const import (
     CONF_MODEL,
     CONF_RELEARN,
     CONF_REPEATS,
-    CONF_SCAN,
     CONF_TEST,
     DOMAIN,
     MAX_REPEATS,
@@ -63,6 +62,11 @@ FREQUENCY = selector.NumberSelector(
 
 def _repeats(data: dict[str, Any]) -> int:
     return int(data.get(CONF_REPEATS) or 0)
+
+
+def _frequency(data: dict[str, Any]) -> float | None:
+    value = data.get(CONF_FREQUENCY)
+    return float(value) if value else None
 
 
 class BroadlinkCommandsConfigFlow(ConfigFlow, domain=DOMAIN):
@@ -214,8 +218,10 @@ class CommandSubentryFlowHandler(ConfigSubentryFlow):
 
         if user_input is not None:
             if user_input.get(CONF_RELEARN):
-                # Keep the name and area; only the code is being replaced.
+                # Keep the name and area; only the code is being replaced. A
+                # cleared frequency means sweep for it again.
                 self._pending = user_input
+                self._frequency = _frequency(user_input)
                 return await self.async_step_user()
             return self._save(user_input, subentry)
 
@@ -230,23 +236,30 @@ class CommandSubentryFlowHandler(ConfigSubentryFlow):
             if area_id
             else vol.Optional(CONF_AREA_ID)
         )
+        fields: dict[Any, Any] = {
+            vol.Required("name", default=subentry.title): str,
+            area_field: selector.AreaSelector(),
+            vol.Optional(CONF_REPEATS, default=_repeats(subentry.data)): REPEATS,
+        }
+        # Only worth showing once a command exists and turns out not to work.
+        if self._code_type == CODE_TYPE_RF:
+            frequency_field = (
+                vol.Optional(CONF_FREQUENCY, default=self._frequency)
+                if self._frequency
+                else vol.Optional(CONF_FREQUENCY)
+            )
+            fields[frequency_field] = FREQUENCY
+        fields[vol.Optional(CONF_RELEARN, default=False)] = bool
+
         return self.async_show_form(
-            step_id="reconfigure",
-            data_schema=vol.Schema(
-                {
-                    vol.Required("name", default=subentry.title): str,
-                    area_field: selector.AreaSelector(),
-                    vol.Optional(
-                        CONF_REPEATS, default=_repeats(subentry.data)
-                    ): REPEATS,
-                    vol.Optional(CONF_RELEARN, default=False): bool,
-                }
-            ),
+            step_id="reconfigure", data_schema=vol.Schema(fields)
         )
 
     def _save(
         self, user_input: dict[str, Any], subentry: ConfigSubentry
     ) -> SubentryFlowResult:
+        if CONF_FREQUENCY in user_input:
+            self._frequency = _frequency(user_input)
         area_id = user_input.get(CONF_AREA_ID)
         self._apply_area(subentry.subentry_id, area_id)
         return self.async_update_and_abort(
@@ -296,38 +309,14 @@ class CommandSubentryFlowHandler(ConfigSubentryFlow):
     async def async_step_learn_rf(
         self, user_input: dict[str, Any] | None = None
     ) -> SubentryFlowResult:
-        """Choose how to get the frequency before capturing the packet.
-
-        Remotes print their frequency on the label, and typing it in beats a
-        sweep: the sweep only reports what it happened to lock onto, which can be
-        close enough for a lamp but not for a fussier receiver.
-        """
+        """Skip the sweep when this device already found a frequency."""
         self._code_type = CODE_TYPE_RF
-
-        if user_input is not None:
-            frequency = user_input.get(CONF_FREQUENCY)
-            if user_input.get(CONF_SCAN) or not frequency:
-                self._frequency = None
-                return await self.async_step_hold_rf()
-            self._frequency = float(frequency)
+        if self._frequency is None and not self._reconfiguring:
+            self._frequency = self._known_frequency()
+        if self._frequency is not None:
             self._device_handle = await self._device()
             return await self.async_step_press_rf()
-
-        known = self._known_frequency()
-        frequency_field = (
-            vol.Optional(CONF_FREQUENCY, default=known)
-            if known
-            else vol.Optional(CONF_FREQUENCY)
-        )
-        return self.async_show_form(
-            step_id="learn_rf",
-            data_schema=vol.Schema(
-                {
-                    frequency_field: FREQUENCY,
-                    vol.Optional(CONF_SCAN, default=False): bool,
-                }
-            ),
-        )
+        return await self.async_step_hold_rf()
 
     async def async_step_hold_rf(
         self, user_input: dict[str, Any] | None = None
