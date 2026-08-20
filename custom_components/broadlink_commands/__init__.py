@@ -55,6 +55,12 @@ async def async_setup_entry(hass: HomeAssistant, entry: BroadlinkConfigEntry) ->
         name=entry.title,
         manufacturer="Broadlink",
         model=entry.data.get(CONF_MODEL),
+        # The device page has no hook for adding a subentry, so link to the page
+        # that does have the "Add command" button.
+        configuration_url=(
+            f"homeassistant://config/integrations/integration/{DOMAIN}"
+            f"#config_entry={entry.entry_id}"
+        ),
     )
 
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)

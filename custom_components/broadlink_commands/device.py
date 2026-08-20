@@ -10,7 +10,7 @@ import time
 from typing import Any
 
 import broadlink
-from broadlink.exceptions import ReadError, StorageError
+from broadlink.exceptions import BroadlinkException, ReadError, StorageError
 
 from .const import (
     DISCOVERY_TIMEOUT,
@@ -63,7 +63,25 @@ def connect(host: str, mac: str, devtype: int) -> Any:
     """Build an authenticated device handle."""
     device = broadlink.gendevice(devtype, (host, 80), bytes.fromhex(mac))
     device.auth()
+    _unlock(device)
     return device
+
+
+def _unlock(device: Any) -> None:
+    """Clear the Broadlink app's lock, which blocks learning and sending.
+
+    gendevice cannot know the lock state, so it has to be read off the device.
+    hello() also fills in the name, which set_lock writes back - without it the
+    device would be renamed to an empty string.
+    """
+    try:
+        device.hello()
+        if not device.is_locked:
+            return
+        device.set_lock(False)
+        _LOGGER.warning("%s was locked by the Broadlink app; unlocked it", device.host[0])
+    except (OSError, BroadlinkException):
+        _LOGGER.warning("Could not check or clear the lock on %s", device.host[0])
 
 
 def learn_ir(device: Any) -> str:
