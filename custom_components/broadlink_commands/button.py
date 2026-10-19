@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import logging
 
+from broadlink.exceptions import BroadlinkException
 from homeassistant.components.button import ButtonEntity
 from homeassistant.config_entries import ConfigSubentry
 from homeassistant.core import HomeAssistant
@@ -80,7 +81,12 @@ class BroadlinkCommandButton(ButtonEntity):
         try:
             device = await self.hass.async_add_executor_job(self._runtime.connect)
             await self.hass.async_add_executor_job(bl.send, device, self._code)
-        except OSError as err:
+        except bl.DeviceLocked as err:
+            raise HomeAssistantError(
+                translation_domain=DOMAIN,
+                translation_key="device_locked",
+            ) from err
+        except (OSError, BroadlinkException) as err:
             raise HomeAssistantError(
                 f"Could not reach {self._runtime.host}: {err}"
             ) from err

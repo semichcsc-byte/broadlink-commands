@@ -7,6 +7,7 @@ import logging
 from typing import Any
 
 import voluptuous as vol
+from broadlink.exceptions import BroadlinkException
 from homeassistant.components.button import DOMAIN as BUTTON_DOMAIN
 from homeassistant.config_entries import (
     ConfigEntry,
@@ -82,7 +83,7 @@ class BroadlinkCommandsConfigFlow(ConfigFlow, domain=DOMAIN):
 
         try:
             devices = await self.hass.async_add_executor_job(bl.discover)
-        except OSError:
+        except (OSError, BroadlinkException):
             _LOGGER.exception("Discovery failed")
             devices = []
 
@@ -119,7 +120,9 @@ class BroadlinkCommandsConfigFlow(ConfigFlow, domain=DOMAIN):
                 info = await self.hass.async_add_executor_job(
                     bl.identify, user_input[CONF_HOST]
                 )
-            except OSError:
+            except bl.UnsupportedDevice:
+                errors["base"] = "unsupported_device"
+            except (OSError, BroadlinkException):
                 errors["base"] = "cannot_connect"
             else:
                 return await self._create(info)
@@ -138,7 +141,9 @@ class BroadlinkCommandsConfigFlow(ConfigFlow, domain=DOMAIN):
             await self.hass.async_add_executor_job(
                 bl.connect, info["host"], info["mac"], info["devtype"]
             )
-        except OSError:
+        except bl.DeviceLocked:
+            return self.async_abort(reason="device_locked")
+        except (OSError, BroadlinkException):
             return self.async_abort(reason="cannot_connect")
 
         return self.async_create_entry(
@@ -188,12 +193,19 @@ class CommandSubentryFlowHandler(ConfigSubentryFlow):
             bl.connect, data[CONF_HOST], data[CONF_MAC], data[CONF_DEVTYPE]
         )
 
+    def _supports_rf(self) -> bool:
+        data = self._entry.data
+        return bl.supports_rf(
+            data[CONF_HOST], data[CONF_MAC], data[CONF_DEVTYPE]
+        )
+
     async def async_step_user(
         self, user_input: dict[str, Any] | None = None
     ) -> SubentryFlowResult:
-        return self.async_show_menu(
-            step_id="user", menu_options=["learn_ir", "learn_rf"]
-        )
+        options = ["learn_ir"]
+        if self._supports_rf():
+            options.append("learn_rf")
+        return self.async_show_menu(step_id="user", menu_options=options)
 
     # --- Editing an existing command ---------------------------------------------
 
@@ -296,11 +308,18 @@ class CommandSubentryFlowHandler(ConfigSubentryFlow):
         self, user_input: dict[str, Any] | None = None
     ) -> SubentryFlowResult:
         """Skip the sweep when this device already found a frequency."""
+        if not self._supports_rf():
+            return self.async_abort(reason="unsupported_rf")
         self._code_type = CODE_TYPE_RF
         if self._frequency is None and not self._reconfiguring:
             self._frequency = self._known_frequency()
         if self._frequency is not None:
-            self._device_handle = await self._device()
+            try:
+                self._device_handle = await self._device()
+            except bl.DeviceLocked:
+                return self.async_abort(reason="device_locked")
+            except (OSError, BroadlinkException):
+                return self.async_abort(reason="cannot_connect")
             return await self.async_step_press_rf()
         return await self.async_step_hold_rf()
 
@@ -321,7 +340,10 @@ class CommandSubentryFlowHandler(ConfigSubentryFlow):
 
         try:
             self._device_handle, self._frequency = self._task.result()
-        except (OSError, bl.LearnTimeout):
+        except bl.DeviceLocked:
+            self._task = None
+            return self.async_show_progress_done(next_step_id="device_locked")
+        except (OSError, BroadlinkException, bl.LearnTimeout):
             self._task = None
             return self.async_show_progress_done(next_step_id="failed")
 
@@ -348,7 +370,10 @@ class CommandSubentryFlowHandler(ConfigSubentryFlow):
 
         try:
             self._code = self._task.result()
-        except (OSError, bl.LearnTimeout):
+        except bl.DeviceLocked:
+            self._task = None
+            return self.async_show_progress_done(next_step_id="device_locked")
+        except (OSError, BroadlinkException, bl.LearnTimeout):
             self._task = None
             # The remembered frequency may belong to a different remote, so fall
             # back to a full sweep rather than declaring failure.
@@ -368,12 +393,20 @@ class CommandSubentryFlowHandler(ConfigSubentryFlow):
     def _finish_task(self) -> SubentryFlowResult:
         try:
             self._code = self._task.result()
-        except (OSError, bl.LearnTimeout):
+        except bl.DeviceLocked:
+            self._task = None
+            return self.async_show_progress_done(next_step_id="device_locked")
+        except (OSError, BroadlinkException, bl.LearnTimeout):
             self._task = None
             return self.async_show_progress_done(next_step_id="failed")
 
         self._task = None
         return self.async_show_progress_done(next_step_id="name")
+
+    async def async_step_device_locked(
+        self, user_input: dict[str, Any] | None = None
+    ) -> SubentryFlowResult:
+        return self.async_abort(reason="device_locked")
 
     async def async_step_failed(
         self, user_input: dict[str, Any] | None = None
@@ -398,7 +431,9 @@ class CommandSubentryFlowHandler(ConfigSubentryFlow):
                 try:
                     device = await self._device()
                     await self.hass.async_add_executor_job(bl.send, device, self._code)
-                except OSError:
+                except bl.DeviceLocked:
+                    errors["base"] = "device_locked"
+                except (OSError, BroadlinkException):
                     errors["base"] = "cannot_connect"
                 else:
                     placeholders["result"] = "Sent. If nothing happened, learn it again."

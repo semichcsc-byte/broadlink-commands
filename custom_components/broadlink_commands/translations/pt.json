@@ -17,9 +17,11 @@
       }
     },
     "error": {
+      "unsupported_device": "Este aparelho não permite aprender comandos. Usa um RM mini, RM pro, RM4 mini ou RM4 pro.",
       "cannot_connect": "Não foi possível alcançar esse aparelho."
     },
     "abort": {
+      "device_locked": "O aparelho está bloqueado. Desbloqueia-o na aplicação Broadlink e tenta novamente.",
       "already_configured": "Esse aparelho já está configurado.",
       "cannot_connect": "Não foi possível alcançar esse aparelho."
     }
@@ -73,14 +75,20 @@
         "press_rf": "Prime o botão uma vez. Volta a premir de poucos em poucos segundos até este passo terminar."
       },
       "error": {
+        "device_locked": "O aparelho está bloqueado. Desbloqueia-o na aplicação Broadlink e tenta novamente.",
         "cannot_connect": "Não foi possível alcançar o aparelho."
       },
       "abort": {
+        "unsupported_rf": "Este aparelho apenas suporta infravermelhos. Usa um RM pro ou RM4 pro para aprender comandos de radiofrequência.",
+        "device_locked": "O aparelho está bloqueado. Desbloqueia-o na aplicação Broadlink e tenta novamente.",
         "cannot_connect": "Não foi possível alcançar o aparelho."
       }
     }
   },
   "exceptions": {
+    "device_locked": {
+      "message": "O aparelho está bloqueado. Desbloqueia-o na aplicação Broadlink e tenta novamente."
+    },
     "send_failed": {
       "message": "Não foi possível alcançar o aparelho Broadlink."
     }

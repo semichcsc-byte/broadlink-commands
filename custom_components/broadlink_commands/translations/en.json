@@ -17,9 +17,11 @@
       }
     },
     "error": {
+      "unsupported_device": "This device cannot learn commands. Use an RM mini, RM pro, RM4 mini or RM4 pro.",
       "cannot_connect": "Could not reach that device."
     },
     "abort": {
+      "device_locked": "The device is locked. Unlock it in the Broadlink app and try again.",
       "already_configured": "That device is already set up.",
       "cannot_connect": "Could not reach that device."
     }
@@ -73,14 +75,20 @@
         "press_rf": "Press the button once. Press it again every few seconds until this step finishes."
       },
       "error": {
+        "device_locked": "The device is locked. Unlock it in the Broadlink app and try again.",
         "cannot_connect": "Could not reach the device."
       },
       "abort": {
+        "unsupported_rf": "This device only supports infrared. Use an RM pro or RM4 pro to learn radio frequency commands.",
+        "device_locked": "The device is locked. Unlock it in the Broadlink app and try again.",
         "cannot_connect": "Could not reach the device."
       }
     }
   },
   "exceptions": {
+    "device_locked": {
+      "message": "The device is locked. Unlock it in the Broadlink app and try again."
+    },
     "send_failed": {
       "message": "Could not reach the Broadlink device."
     }

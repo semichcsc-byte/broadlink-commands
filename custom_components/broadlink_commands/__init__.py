@@ -5,6 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any
 
+from broadlink.exceptions import BroadlinkException
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import Platform
 from homeassistant.core import HomeAssistant
@@ -41,7 +42,12 @@ async def async_setup_entry(hass: HomeAssistant, entry: BroadlinkConfigEntry) ->
 
     try:
         await hass.async_add_executor_job(runtime.connect)
-    except OSError as err:
+    except bl.DeviceLocked as err:
+        raise ConfigEntryNotReady(
+            translation_domain=DOMAIN,
+            translation_key="device_locked",
+        ) from err
+    except (OSError, BroadlinkException) as err:
         raise ConfigEntryNotReady(f"Cannot reach {runtime.host}") from err
 
     entry.runtime_data = runtime

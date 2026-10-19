@@ -22,9 +22,10 @@ a `button` entity per command, grouped under a real device.
 - Home Assistant 2025.3 or newer
 - A Broadlink RM mini, RM pro, RM4 mini or RM4 pro
 - The device already on your Wi-Fi, set up once with the Broadlink app
+- Device lock disabled by you in the Broadlink app
 
-Devices that cannot learn codes are filtered out, so if yours is not on the list
-above it will not appear.
+Devices that cannot learn codes are filtered out of discovery and rejected during
+manual setup. Only RM pro and RM4 pro support RF; RM mini and RM4 mini are IR-only.
 
 ## Install
 
@@ -73,7 +74,8 @@ On the integration's page, press **Learn a command**.
 
 **Infrared** — press the button on your remote once, when asked.
 
-**Radio frequency** — the first RF command takes two steps, because the device
+**Radio frequency** — available only on RM pro and RM4 pro. The first RF command
+takes two steps, because the device
 has to find the frequency first. Hold the button down until the step finishes,
 then release it and press it once. Later RF commands on the same device reuse that
 frequency, so they are a single press.
@@ -103,12 +105,19 @@ behaves oddly.
 or so, and make sure its batteries are good.
 
 **It worked and then stopped.** Check the device still has the same IP. If your
-router hands out a new one, set the address again by reconfiguring the
-integration, or give the device a static lease.
+router hands out a new one, go to **Settings → Devices & services → Add
+integration → Broadlink Commands** again. Select the same device, or choose
+**Enter an address manually** and enter its new IP. Recognising the same MAC
+address updates the existing entry's address without removing its commands or
+buttons; the flow reports that the device is already configured. There is no
+separate device-level reconfiguration screen. A static DHCP lease helps prevent
+future address changes.
 
 **The Broadlink app locked it.** The app can lock a device, which blocks anything
-else from controlling it. This integration clears that lock by itself whenever it
-connects, so there is nothing for you to do.
+else from controlling it. Unlock the device in the Broadlink app, then retry setup,
+learning or sending. The integration reports locked devices and never changes the
+lock setting. If setup is waiting for an unlock, it retries automatically; you
+can also reload the integration after unlocking.
 
 **The frequency looks wrong.** Editing an RF command shows the frequency that was
 found. Remotes usually print theirs on the back or inside the battery compartment.
@@ -120,9 +129,21 @@ scans from scratch. This is rarely the problem — try relearning first.
 - Codes live in the config entry, so they survive restarts and are included in
   Home Assistant backups. There is no database and nothing to back up separately.
 - Removing a command removes its button.
-- The device is contacted only when you press a button, and authenticated afresh
-  each time, so one that reboots or changes address recovers on its own.
+- The device is contacted during setup, learning and sending, with a read-only
+  lock check before each fresh authentication.
 - Nothing leaves your network. The Broadlink cloud is not used.
+
+## Tests
+
+In a Python 3.14 virtual environment, run:
+
+```sh
+pip install -r requirements_test.txt
+python -m pytest -q
+```
+
+The regression tests mock device communication; they do not contact or change
+real devices.
 
 ## Licence
 
