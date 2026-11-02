@@ -4,9 +4,11 @@ from __future__ import annotations
 
 import asyncio
 import logging
+from contextlib import AbstractAsyncContextManager, aclosing
 from typing import Any
 
 import voluptuous as vol
+from broadlink.device import Device
 from broadlink.exceptions import BroadlinkException
 from homeassistant.components.button import DOMAIN as BUTTON_DOMAIN
 from homeassistant.config_entries import (
@@ -20,7 +22,7 @@ from homeassistant.config_entries import (
 from homeassistant.core import callback
 from homeassistant.helpers import entity_registry as er, selector
 
-from . import device as bl
+from . import async_check_library, device as bl
 from .const import (
     CODE_TYPE_IR,
     CODE_TYPE_RF,
@@ -76,13 +78,15 @@ class BroadlinkCommandsConfigFlow(ConfigFlow, domain=DOMAIN):
     async def async_step_user(
         self, user_input: dict[str, Any] | None = None
     ) -> ConfigFlowResult:
+        if not async_check_library(self.hass):
+            return self.async_abort(reason="incompatible_library")
         if user_input is not None:
             if user_input[CONF_HOST] == MANUAL:
                 return await self.async_step_manual()
             return await self._create(self._devices[user_input[CONF_HOST]])
 
         try:
-            devices = await self.hass.async_add_executor_job(bl.discover)
+            devices = await bl.discover()
         except (OSError, BroadlinkException):
             _LOGGER.exception("Discovery failed")
             devices = []
@@ -114,12 +118,12 @@ class BroadlinkCommandsConfigFlow(ConfigFlow, domain=DOMAIN):
         self, user_input: dict[str, Any] | None = None
     ) -> ConfigFlowResult:
         """Broadcast discovery does not cross VLANs; this does."""
+        if not async_check_library(self.hass):
+            return self.async_abort(reason="incompatible_library")
         errors: dict[str, str] = {}
         if user_input is not None:
             try:
-                info = await self.hass.async_add_executor_job(
-                    bl.identify, user_input[CONF_HOST]
-                )
+                info = await bl.identify(user_input[CONF_HOST])
             except bl.UnsupportedDevice:
                 errors["base"] = "unsupported_device"
             except (OSError, BroadlinkException):
@@ -138,9 +142,8 @@ class BroadlinkCommandsConfigFlow(ConfigFlow, domain=DOMAIN):
         self._abort_if_unique_id_configured(updates={CONF_HOST: info["host"]})
 
         try:
-            await self.hass.async_add_executor_job(
-                bl.connect, info["host"], info["mac"], info["devtype"]
-            )
+            async with bl.connect(info["host"], info["mac"], info["devtype"]):
+                pass
         except bl.DeviceLocked:
             return self.async_abort(reason="device_locked")
         except (OSError, BroadlinkException):
@@ -187,11 +190,9 @@ class CommandSubentryFlowHandler(ConfigSubentryFlow):
                 return float(frequency)
         return None
 
-    async def _device(self) -> Any:
+    def _device(self) -> AbstractAsyncContextManager[Device]:
         data = self._entry.data
-        return await self.hass.async_add_executor_job(
-            bl.connect, data[CONF_HOST], data[CONF_MAC], data[CONF_DEVTYPE]
-        )
+        return bl.connect(data[CONF_HOST], data[CONF_MAC], data[CONF_DEVTYPE])
 
     def _supports_rf(self) -> bool:
         data = self._entry.data
@@ -202,6 +203,8 @@ class CommandSubentryFlowHandler(ConfigSubentryFlow):
     async def async_step_user(
         self, user_input: dict[str, Any] | None = None
     ) -> SubentryFlowResult:
+        if not async_check_library(self.hass):
+            return self.async_abort(reason="incompatible_library")
         options = ["learn_ir"]
         if self._supports_rf():
             options.append("learn_rf")
@@ -213,6 +216,8 @@ class CommandSubentryFlowHandler(ConfigSubentryFlow):
         self, user_input: dict[str, Any] | None = None
     ) -> SubentryFlowResult:
         """Rename, move, or recapture a command without replacing its entity."""
+        if not async_check_library(self.hass):
+            return self.async_abort(reason="incompatible_library")
         subentry = self._get_reconfigure_subentry()
         self._reconfiguring = True
 
@@ -299,8 +304,8 @@ class CommandSubentryFlowHandler(ConfigSubentryFlow):
         return self._finish_task()
 
     async def _learn_ir(self) -> str:
-        device = await self._device()
-        return await self.hass.async_add_executor_job(bl.learn_ir, device)
+        async with self._device() as device:
+            return await bl.learn_ir(device)
 
     # --- RF: sweep for the frequency, then capture the packet --------------------
 
@@ -315,7 +320,8 @@ class CommandSubentryFlowHandler(ConfigSubentryFlow):
             self._frequency = self._known_frequency()
         if self._frequency is not None:
             try:
-                self._device_handle = await self._device()
+                async with self._device() as device:
+                    self._device_handle = device
             except bl.DeviceLocked:
                 return self.async_abort(reason="device_locked")
             except (OSError, BroadlinkException):
@@ -350,10 +356,10 @@ class CommandSubentryFlowHandler(ConfigSubentryFlow):
         self._task = None
         return self.async_show_progress_done(next_step_id="press_rf")
 
-    async def _sweep_rf(self) -> tuple[Any, float]:
-        device = await self._device()
-        frequency = await self.hass.async_add_executor_job(bl.sweep_rf, device)
-        return device, frequency
+    async def _sweep_rf(self) -> tuple[Device, float]:
+        async with self._device() as device:
+            frequency = await bl.sweep_rf(device)
+            return device, frequency
 
     async def async_step_press_rf(
         self, user_input: dict[str, Any] | None = None
@@ -386,9 +392,9 @@ class CommandSubentryFlowHandler(ConfigSubentryFlow):
         return self.async_show_progress_done(next_step_id="name")
 
     async def _learn_rf(self) -> str:
-        return await self.hass.async_add_executor_job(
-            bl.learn_rf, self._device_handle, self._frequency
-        )
+        # Closing the UDP endpoint preserves the authenticated session.
+        async with aclosing(self._device_handle) as device:
+            return await bl.learn_rf(device, self._frequency)
 
     def _finish_task(self) -> SubentryFlowResult:
         try:
@@ -429,8 +435,8 @@ class CommandSubentryFlowHandler(ConfigSubentryFlow):
         if user_input is not None:
             if user_input.get(CONF_TEST):
                 try:
-                    device = await self._device()
-                    await self.hass.async_add_executor_job(bl.send, device, self._code)
+                    async with self._device() as device:
+                        await bl.send(device, self._code)
                 except bl.DeviceLocked:
                     errors["base"] = "device_locked"
                 except (OSError, BroadlinkException):

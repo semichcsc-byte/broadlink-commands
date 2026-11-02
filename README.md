@@ -19,13 +19,14 @@ a `button` entity per command, grouped under a real device.
 
 ## What you need
 
-- Home Assistant 2025.3 or newer
+- Home Assistant 2026.10 or newer
 - A Broadlink RM mini, RM pro, RM4 mini or RM4 pro
 - The device already on your Wi-Fi, set up once with the Broadlink app
 - Device lock disabled by you in the Broadlink app
 
 Devices that cannot learn codes are filtered out of discovery and rejected during
 manual setup. Only RM pro and RM4 pro support RF; RM mini and RM4 mini are IR-only.
+Both RM mini 3 firmware variants, including `RMMINIB`, are supported.
 
 ## Install
 
@@ -96,6 +97,17 @@ recapture the code and keep everything else.
 
 ## If something does not work
 
+**Adding the integration fails with "Config flow could not be loaded" (500).**
+Update Broadlink Commands in HACS and restart Home Assistant. This integration
+uses `python-broadlink>=1.0.6`, the library distribution used by Home Assistant
+2026.10 and later. Older releases requested `broadlink==0.19.0`, which can conflict
+with the built-in integration. An incompatible loaded library now produces an
+explicit recovery message and a notice in **Settings → System → Repairs** instead
+of attempting discovery or authentication. Follow
+[the recovery steps below](#incompatible-broadlink-library). For other errors,
+include the full traceback from **Settings → System → Logs** when reporting the
+issue.
+
 **The button does nothing, or only half works.** Learn the command again. RF
 captures fail silently more often than you would think — the code gets saved, it
 just is not quite right. Relearning fixes almost every case of a command that
@@ -124,6 +136,49 @@ found. Remotes usually print theirs on the back or inside the battery compartmen
 If they disagree, correct it and tick **Learn the code again**. Clearing the field
 scans from scratch. This is rarely the problem — try relearning first.
 
+### Incompatible Broadlink library
+
+The old `broadlink` distribution and the new `python-broadlink` distribution both
+install a module named `broadlink`. Package metadata can say that the new dependency
+is installed while Python still loads old files. Broadlink Commands checks the
+actual asynchronous API before using it, logs the loaded module's path, and
+blocks setup and sending with recovery instructions if it is incompatible.
+
+1. Make a Home Assistant backup. Update Broadlink Commands and any other custom
+   integration that still requires the old `broadlink` distribution; otherwise it
+   may be installed again. The built-in Broadlink integration already uses the
+   new distribution on Home Assistant 2026.10.
+2. Restore the dependency environment using the method for your installation:
+   - **Home Assistant OS:** rebuild Core with `ha core rebuild` using the Home
+     Assistant CLI. This recreates Core's container while keeping your
+     configuration.
+   - **Home Assistant Container:** recreate the container from your supported
+     Home Assistant image, retaining the existing `/config` volume.
+   - **An existing Python virtual environment:** stop Home Assistant and use the
+     Python executable from the environment that actually runs Home Assistant.
+     Remove the old distribution **before** force-reinstalling the new one:
+
+     ```sh
+     python -m pip uninstall broadlink
+     python -m pip install --force-reinstall --no-deps "python-broadlink==1.0.6"
+     ```
+
+     The version above matches Home Assistant 2026.10. Use Home Assistant's
+     required version if a newer release pins a different version. Do not run
+     these `pip` commands in the Terminal & SSH app: its Python environment is
+     separate from Home Assistant Core.
+   - **A cached module under `config/deps`:** if the logged path points there,
+     stop Home Assistant and remove only the cached `broadlink` package and its
+     matching `broadlink` and `python_broadlink` distribution metadata from that
+     dependency cache. Leave configuration and other packages untouched. Home
+     Assistant reinstalls missing dependencies when it starts.
+3. Restart Home Assistant and retry setup or reload the integration. The repair
+   notice clears once compatible code is loaded.
+
+Do not delete the integration's config entry, saved commands, or entities. The
+integration deliberately does not uninstall packages or reload shared Python
+modules automatically, because the built-in integration may also be using them.
+
 ## How it works
 
 - Codes live in the config entry, so they survive restarts and are included in
@@ -131,6 +186,9 @@ scans from scratch. This is rarely the problem — try relearning first.
 - Removing a command removes its button.
 - The device is contacted during setup, learning and sending, with a read-only
   lock check before each fresh authentication.
+- Device communication uses the asynchronous `python-broadlink` library without
+  blocking Home Assistant's event loop. UDP endpoints are closed after each
+  operation; RF learning keeps the same authenticated handle between steps.
 - Nothing leaves your network. The Broadlink cloud is not used.
 
 ## Tests
@@ -142,8 +200,9 @@ pip install -r requirements_test.txt
 python -m pytest -q
 ```
 
-The regression tests mock device communication; they do not contact or change
-real devices.
+The regression tests run against Home Assistant 2026.10 and mock device
+communication; they do not contact or change real devices. They also check that
+the configuration flow loads successfully through Home Assistant's HTTP API.
 
 ## Licence
 

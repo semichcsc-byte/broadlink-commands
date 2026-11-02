@@ -2,22 +2,56 @@
 
 from __future__ import annotations
 
+import logging
+from contextlib import AbstractAsyncContextManager
 from dataclasses import dataclass
-from typing import Any
 
+from broadlink.device import Device
 from broadlink.exceptions import BroadlinkException
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import Platform
-from homeassistant.core import HomeAssistant
-from homeassistant.exceptions import ConfigEntryNotReady
+from homeassistant.core import HomeAssistant, callback
+from homeassistant.exceptions import ConfigEntryError, ConfigEntryNotReady
 from homeassistant.helpers import device_registry as dr
+from homeassistant.helpers import issue_registry as ir
 
 from . import device as bl
-from .const import CONF_DEVTYPE, CONF_HOST, CONF_MAC, CONF_MODEL, DOMAIN
+from .const import (
+    CONF_DEVTYPE,
+    CONF_HOST,
+    CONF_MAC,
+    CONF_MODEL,
+    DOMAIN,
+    LIBRARY_RECOVERY_URL,
+)
 
+_LOGGER = logging.getLogger(__name__)
 PLATFORMS = [Platform.BUTTON]
 
 type BroadlinkConfigEntry = ConfigEntry[BroadlinkRuntime]
+
+
+@callback
+def async_check_library(hass: HomeAssistant) -> bool:
+    """Surface incompatible dependency code as an actionable repair."""
+    try:
+        bl.check_library()
+    except bl.IncompatibleLibrary as err:
+        _LOGGER.error("%s", err)
+        ir.async_create_issue(
+            hass,
+            DOMAIN,
+            "incompatible_library",
+            is_fixable=False,
+            is_persistent=True,
+            severity=ir.IssueSeverity.ERROR,
+            translation_key="incompatible_library",
+            translation_placeholders={"documentation_url": LIBRARY_RECOVERY_URL},
+            learn_more_url=LIBRARY_RECOVERY_URL,
+        )
+        return False
+    ir.async_delete_issue(hass, DOMAIN, "incompatible_library")
+    return True
 
 
 @dataclass
@@ -28,12 +62,18 @@ class BroadlinkRuntime:
     mac: str
     devtype: int
 
-    def connect(self) -> Any:
+    def connect(self) -> AbstractAsyncContextManager[Device]:
         """Authenticate fresh; sessions expire and the device may have rebooted."""
         return bl.connect(self.host, self.mac, self.devtype)
 
 
 async def async_setup_entry(hass: HomeAssistant, entry: BroadlinkConfigEntry) -> bool:
+    if not async_check_library(hass):
+        raise ConfigEntryError(
+            translation_domain=DOMAIN,
+            translation_key="incompatible_library",
+        )
+
     runtime = BroadlinkRuntime(
         host=entry.data[CONF_HOST],
         mac=entry.data[CONF_MAC],
@@ -41,7 +81,8 @@ async def async_setup_entry(hass: HomeAssistant, entry: BroadlinkConfigEntry) ->
     )
 
     try:
-        await hass.async_add_executor_job(runtime.connect)
+        async with runtime.connect():
+            pass
     except bl.DeviceLocked as err:
         raise ConfigEntryNotReady(
             translation_domain=DOMAIN,

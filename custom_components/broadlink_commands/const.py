@@ -1,6 +1,10 @@
 """Constants for the Broadlink Commands integration."""
 
 DOMAIN = "broadlink_commands"
+LIBRARY_RECOVERY_URL = (
+    "https://github.com/semichcsc-byte/broadlink-commands"
+    "#incompatible-broadlink-library"
+)
 
 CONF_HOST = "host"
 CONF_MAC = "mac"

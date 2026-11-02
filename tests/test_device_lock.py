@@ -7,6 +7,7 @@ from types import MappingProxyType
 from unittest.mock import AsyncMock, MagicMock, patch
 
 from broadlink.exceptions import NetworkTimeoutError
+from broadlink.remote import rmpro
 from homeassistant.config_entries import ConfigSubentry
 from homeassistant.exceptions import ConfigEntryNotReady, HomeAssistantError
 from pytest_homeassistant_custom_component.common import MockConfigEntry
@@ -37,7 +38,7 @@ COMPONENT = Path(__file__).resolve().parents[1] / "custom_components" / DOMAIN
 def handle():
     """No test communicates with real hardware."""
     with patch.object(bl.broadlink, "gendevice") as factory:
-        device = factory.return_value
+        device = factory.return_value = MagicMock(spec=rmpro)
         device.is_locked = True
         device.type = "RMPRO"
         yield device
@@ -76,28 +77,37 @@ def flow(hass, entry):
         yield handler
 
 
-def test_locked_connection(handle):
+async def test_locked_connection(handle):
     with pytest.raises(bl.DeviceLocked, match="Unlock it in the Broadlink app"):
-        bl.connect(INFO["host"], INFO["mac"], INFO["devtype"])
-    handle.hello.assert_called_once_with()
-    handle.auth.assert_not_called()
+        async with bl.connect(INFO["host"], INFO["mac"], INFO["devtype"]):
+            pass
+    handle.hello.assert_awaited_once_with()
+    handle.auth.assert_not_awaited()
+    handle.aclose.assert_awaited_once_with()
 
 
-def test_unlocked_connection(handle):
+async def test_unlocked_connection(handle):
     handle.is_locked = False
-    assert bl.connect(INFO["host"], INFO["mac"], INFO["devtype"]) is handle
+    async with bl.connect(INFO["host"], INFO["mac"], INFO["devtype"]) as device:
+        assert device is handle
     assert handle.method_calls == [
         ("hello", (), {}),
         ("auth", (), {}),
+        ("aclose", (), {}),
     ]
+    handle.hello.assert_awaited_once_with()
+    handle.auth.assert_awaited_once_with()
+    handle.aclose.assert_awaited_once_with()
 
 
 @pytest.mark.parametrize("error", [OSError("offline"), NetworkTimeoutError(-4000)])
-def test_lock_check_failure_is_not_ignored(handle, error):
+async def test_lock_check_failure_is_not_ignored(handle, error):
     handle.hello.side_effect = error
     with pytest.raises(type(error)):
-        bl.connect(INFO["host"], INFO["mac"], INFO["devtype"])
-    handle.auth.assert_not_called()
+        async with bl.connect(INFO["host"], INFO["mac"], INFO["devtype"]):
+            pass
+    handle.auth.assert_not_awaited()
+    handle.aclose.assert_awaited_once_with()
 
 
 async def test_setup_locked(hass, entry, handle):
@@ -189,7 +199,16 @@ async def test_query_failure_surfaces(hass, entry, button, flow, handle, surface
 async def test_press_unlocked(button, handle):
     handle.is_locked = False
     await button.async_press()
-    handle.send_data.assert_called_once_with(bytes.fromhex("2600"))
+    handle.send_data.assert_awaited_once_with(bytes.fromhex("2600"))
+    handle.aclose.assert_awaited_once_with()
+
+
+async def test_send_failure_closes_device(button, handle):
+    handle.is_locked = False
+    handle.send_data.side_effect = NetworkTimeoutError(-4000)
+    with pytest.raises(HomeAssistantError):
+        await button.async_press()
+    handle.aclose.assert_awaited_once_with()
 
 
 async def test_config_flow_unlocked(hass, handle):
@@ -209,7 +228,8 @@ async def test_test_command_unlocked(flow, handle):
     result = await flow.async_step_name({"name": "Power", "test": True})
     assert result["errors"] == {}
     assert result["description_placeholders"]["result"].startswith("Sent.")
-    handle.send_data.assert_called_once_with(bytes.fromhex("2600"))
+    handle.send_data.assert_awaited_once_with(bytes.fromhex("2600"))
+    handle.aclose.assert_awaited_once_with()
 
 
 @pytest.mark.parametrize("step", ["learn_ir", "hold_rf", "learn_rf"])
@@ -230,6 +250,57 @@ async def test_learning_unlocked(flow, handle, step):
             result = await method()
     assert result["type"] == "progress_done"
     assert result["step_id"] == ("press_rf" if step == "hold_rf" else "name")
+
+
+@pytest.mark.parametrize(
+    ("operation", "method"),
+    [
+        ("_learn_ir", "enter_learning"),
+        ("_sweep_rf", "sweep_frequency"),
+    ],
+)
+async def test_learning_failure_closes_device(flow, handle, operation, method):
+    handle.is_locked = False
+    getattr(handle, method).side_effect = NetworkTimeoutError(-4000)
+    with pytest.raises(NetworkTimeoutError):
+        await getattr(flow, operation)()
+    handle.aclose.assert_awaited_once_with()
+
+
+async def test_cancelled_learning_closes_device(flow, handle):
+    handle.is_locked = False
+    started = asyncio.Event()
+
+    async def wait_for_data():
+        started.set()
+        await asyncio.Future()
+
+    handle.check_data.side_effect = wait_for_data
+    with patch.object(bl, "POLL_INTERVAL", 0):
+        task = asyncio.create_task(flow._learn_ir())
+        try:
+            await asyncio.wait_for(started.wait(), timeout=5)
+        finally:
+            task.cancel()
+            with pytest.raises(asyncio.CancelledError):
+                await task
+    handle.aclose.assert_awaited_once_with()
+
+
+async def test_rf_learning_reuses_authenticated_handle(flow, handle):
+    handle.is_locked = False
+    with patch.object(bl, "sweep_rf", return_value=433.92):
+        device, frequency = await flow._sweep_rf()
+    assert device is handle
+    handle.aclose.assert_awaited_once_with()
+    flow._device_handle = device
+    flow._frequency = frequency
+    with patch.object(bl, "learn_rf", return_value="b200") as learn:
+        assert await flow._learn_rf() == "b200"
+    learn.assert_awaited_once_with(handle, 433.92)
+    handle.hello.assert_awaited_once_with()
+    handle.auth.assert_awaited_once_with()
+    assert handle.aclose.await_count == 2
 
 
 def test_lock_translations():

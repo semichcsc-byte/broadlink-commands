@@ -23,6 +23,7 @@
     "abort": {
       "device_locked": "O aparelho está bloqueado. Desbloqueia-o na aplicação Broadlink e tenta novamente.",
       "already_configured": "Esse aparelho já está configurado.",
+      "incompatible_library": "Está carregada uma biblioteca Broadlink incompatível. Abre Definições > Sistema > Reparações e segue as instruções de recuperação do Broadlink Commands. Depois, reinicia o Home Assistant.",
       "cannot_connect": "Não foi possível alcançar esse aparelho."
     }
   },
@@ -80,6 +81,7 @@
       },
       "abort": {
         "unsupported_rf": "Este aparelho apenas suporta infravermelhos. Usa um RM pro ou RM4 pro para aprender comandos de radiofrequência.",
+        "incompatible_library": "Está carregada uma biblioteca Broadlink incompatível. Abre Definições > Sistema > Reparações e segue as instruções de recuperação do Broadlink Commands. Depois, reinicia o Home Assistant.",
         "device_locked": "O aparelho está bloqueado. Desbloqueia-o na aplicação Broadlink e tenta novamente.",
         "cannot_connect": "Não foi possível alcançar o aparelho."
       }
@@ -89,8 +91,17 @@
     "device_locked": {
       "message": "O aparelho está bloqueado. Desbloqueia-o na aplicação Broadlink e tenta novamente."
     },
+    "incompatible_library": {
+      "message": "Está carregada uma biblioteca Broadlink incompatível. Abre Definições > Sistema > Reparações e segue as instruções de recuperação do Broadlink Commands. Depois, reinicia o Home Assistant."
+    },
     "send_failed": {
       "message": "Não foi possível alcançar o aparelho Broadlink."
+    }
+  },
+  "issues": {
+    "incompatible_library": {
+      "title": "Está carregada uma biblioteca Broadlink incompatível",
+      "description": "O Broadlink Commands precisa da biblioteca assíncrona `python-broadlink>=1.0.6`, mas o Home Assistant está a carregar código incompatível do antigo pacote `broadlink` ou de uma instalação incompleta.\n\nAtualizar no HACS não substitui um módulo Python já carregado. Segue as [instruções de recuperação]({documentation_url}) para a tua instalação e reinicia o Home Assistant. Não precisas de remover os comandos nem as entidades guardadas."
     }
   }
 }

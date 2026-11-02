@@ -13,7 +13,7 @@ from homeassistant.helpers import entity_registry as er
 from homeassistant.helpers.device_registry import DeviceInfo
 from homeassistant.helpers.entity_platform import AddConfigEntryEntitiesCallback
 
-from . import BroadlinkConfigEntry, BroadlinkRuntime, device as bl
+from . import BroadlinkConfigEntry, BroadlinkRuntime, async_check_library, device as bl
 from .const import CODE_TYPE_RF, CONF_AREA_ID, CONF_CODE, CONF_CODE_TYPE, DOMAIN
 
 _LOGGER = logging.getLogger(__name__)
@@ -78,9 +78,14 @@ class BroadlinkCommandButton(ButtonEntity):
             registry.async_update_entity(self.entity_id, area_id=self._area_id)
 
     async def async_press(self) -> None:
+        if not async_check_library(self.hass):
+            raise HomeAssistantError(
+                translation_domain=DOMAIN,
+                translation_key="incompatible_library",
+            )
         try:
-            device = await self.hass.async_add_executor_job(self._runtime.connect)
-            await self.hass.async_add_executor_job(bl.send, device, self._code)
+            async with self._runtime.connect() as device:
+                await bl.send(device, self._code)
         except bl.DeviceLocked as err:
             raise HomeAssistantError(
                 translation_domain=DOMAIN,

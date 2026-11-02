@@ -23,6 +23,7 @@
     "abort": {
       "device_locked": "The device is locked. Unlock it in the Broadlink app and try again.",
       "already_configured": "That device is already set up.",
+      "incompatible_library": "An incompatible Broadlink library is loaded. Open Settings > System > Repairs and follow the Broadlink Commands recovery instructions, then restart Home Assistant.",
       "cannot_connect": "Could not reach that device."
     }
   },
@@ -80,6 +81,7 @@
       },
       "abort": {
         "unsupported_rf": "This device only supports infrared. Use an RM pro or RM4 pro to learn radio frequency commands.",
+        "incompatible_library": "An incompatible Broadlink library is loaded. Open Settings > System > Repairs and follow the Broadlink Commands recovery instructions, then restart Home Assistant.",
         "device_locked": "The device is locked. Unlock it in the Broadlink app and try again.",
         "cannot_connect": "Could not reach the device."
       }
@@ -89,8 +91,17 @@
     "device_locked": {
       "message": "The device is locked. Unlock it in the Broadlink app and try again."
     },
+    "incompatible_library": {
+      "message": "An incompatible Broadlink library is loaded. Open Settings > System > Repairs and follow the Broadlink Commands recovery instructions, then restart Home Assistant."
+    },
     "send_failed": {
       "message": "Could not reach the Broadlink device."
+    }
+  },
+  "issues": {
+    "incompatible_library": {
+      "title": "An incompatible Broadlink library is loaded",
+      "description": "Broadlink Commands needs the asynchronous `python-broadlink>=1.0.6` library, but Home Assistant is loading incompatible code from the old `broadlink` package or an incomplete installation.\n\nUpdating HACS cannot replace an already loaded Python module. Follow the [recovery instructions]({documentation_url}) for your installation, then restart Home Assistant. Your saved commands and entities do not need to be removed."
     }
   }
 }
