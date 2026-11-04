@@ -28,9 +28,18 @@ Devices that cannot learn codes are filtered out of discovery and rejected durin
 manual setup. Only RM pro and RM4 pro support RF; RM mini and RM4 mini are IR-only.
 Both RM mini 3 firmware variants, including `RMMINIB`, are supported.
 
+<!-- ha-marketplace:exclude-start -->
 ## Install
 
-### With HACS
+### With Home Assistant Marketplace (2026.11 or newer)
+
+[![Open Broadlink Commands in the Home Assistant Marketplace.](https://my.home-assistant.io/badges/marketplace_repository.svg)](https://my.home-assistant.io/redirect/marketplace_repository/?owner=semichcsc-byte&repository=broadlink-commands&category=integration)
+
+Open the repository with the button above, install it, then restart Home
+Assistant. The Marketplace replaces HACS starting with Home Assistant 2026.11.
+Existing HACS installations migrate automatically; do not install a second copy.
+
+### With HACS (Home Assistant 2026.10)
 
 [![Open your Home Assistant instance and open a repository inside the Home Assistant Community Store.](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=semichcsc-byte&repository=broadlink-commands&category=integration)
 
@@ -52,6 +61,8 @@ Copy the `custom_components/broadlink_commands` folder into your Home Assistant
 `config/custom_components/` folder, so you end up with
 `config/custom_components/broadlink_commands/manifest.json`. Restart Home
 Assistant.
+
+<!-- ha-marketplace:exclude-end -->
 
 ## Set up your remote
 
@@ -98,7 +109,8 @@ recapture the code and keep everything else.
 ## If something does not work
 
 **Adding the integration fails with "Config flow could not be loaded" (500).**
-Update Broadlink Commands in HACS and restart Home Assistant. This integration
+Update Broadlink Commands in the Marketplace (or HACS on older Home Assistant
+versions) and restart Home Assistant. This integration
 uses `python-broadlink>=1.0.6`, the library distribution used by Home Assistant
 2026.10 and later. Older releases requested `broadlink==0.19.0`, which can conflict
 with the built-in integration. An incompatible loaded library now produces an
