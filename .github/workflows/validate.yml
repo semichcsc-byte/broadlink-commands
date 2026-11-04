@@ -1,8 +1,12 @@
 name: Validate
 
+permissions:
+  contents: read
+
 on:
   push:
   pull_request:
+  workflow_dispatch:
   schedule:
     # Both actions validate against current Home Assistant, so this catches
     # breakage introduced by Home Assistant releases, not just by our commits.
@@ -30,10 +34,11 @@ jobs:
       - uses: home-assistant/actions/hassfest@master
 
   hacs:
-    name: HACS
+    name: Marketplace / HACS
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - uses: hacs/action@main
         with:
           category: integration
+          comment: false
